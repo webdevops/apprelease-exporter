@@ -1,0 +1,82 @@
+filters:
+  filterGeneralVersions: &filterGeneralVersions
+    whitelist: |
+      ^v?[0-9]*\.([-_\.0-9])*$
+
+projects:
+
+  docker:
+    - name: azure-resourcemanager-exporter
+      image: webdevops/azure-resourcemanager-exporter
+      filter: *filterGeneralVersions
+
+    - name: elasticsaerch
+      image: elasticsearch/elasticsearch
+      registry:
+        url: https://docker.elastic.co
+      filter: *filterGeneralVersions
+
+#    - name: etcd
+#      image: google-containers/etcd-amd64
+#      registry:
+#        url: https://gcr.io/
+#        username: _json_key
+#        password: |-
+#          {
+#            "type": "service_account",
+#            "project_id": "xxxxxxxxxxxxxxx",
+#            "private_key_id": "xxxxxxxxxxxxxxxxxxxxxxx",
+#            "private_key": "-----BEGIN PRIVATE KEY-----xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n-----END PRIVATE KEY-----\n",
+#            "client_email": "xxxxxxxxxxxxxxx@xxxxxxxxxxxxxxxxxxxxx.iam.gserviceaccount.com",
+#            "client_id": "xxxxxxxxxxxxxxxxxxxxx",
+#            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+#            "token_uri": "https://oauth2.googleapis.com/token",
+#            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+#            "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+#          }
+#      filter: *filterGeneralVersions
+
+  github:
+    - name: kubernetes
+      project: kubernetes/kubernetes
+      filter: *filterGeneralVersions
+
+    - name: kured
+      project: weaveworks/kured
+      filter: *filterGeneralVersions
+
+    - name: ghostunnel
+      project: square/ghostunnel
+      filter: *filterGeneralVersions
+
+    - name: prometheus-server
+      project: prometheus/prometheus
+      filter: *filterGeneralVersions
+
+    - name: prometheus-alertmanager
+      project: prometheus/alertmanager
+      filter: *filterGeneralVersions
+
+    - name: prometheus-blackbox_exporter
+      project: prometheus/blackbox_exporter
+      filter: *filterGeneralVersions
+
+    - name: grafana
+      project: grafana/grafana
+      filter: *filterGeneralVersions
+
+    - name: fluentbit
+      project: fluent/fluent-bit
+      filter: *filterGeneralVersions
+
+    - name: docker
+      project: docker/docker-ce
+      filter: *filterGeneralVersions
+
+    - name: elasticsearch
+      project: elastic/elasticsearch
+      filter: *filterGeneralVersions
+
+    - name: helm
+      project: helm/helm
+      filter: *filterGeneralVersions
