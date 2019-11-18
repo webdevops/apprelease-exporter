@@ -39,6 +39,8 @@ projects:
   github:
     - name: kubernetes
       project: kubernetes/kubernetes
+      mark:
+      - "v1.16.3"
       filter: *filterGeneralVersions
 
     - name: kube-state-metrics

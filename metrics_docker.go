@@ -58,6 +58,7 @@ func (m *MetricsCollectorDocker) Setup(collector *CollectorGeneral) {
 			"name",
 			"image",
 			"tag",
+			"marked",
 		},
 	)
 
@@ -99,9 +100,10 @@ func (m *MetricsCollectorDocker) collectProject(ctx context.Context, callback ch
 			}
 
 			releaseMetrics.AddInfo(prometheus.Labels{
-				"name":  project.Name,
-				"image": project.Image,
-				"tag":   tag,
+				"name":   project.Name,
+				"image":  project.Image,
+				"tag":    tag,
+				"marked": boolToString(project.IsReleaseMarked(tag)),
 			})
 
 			if manifest, err := client.Manifest(project.Image, tag); err == nil {
@@ -123,6 +125,7 @@ func (m *MetricsCollectorDocker) collectProject(ctx context.Context, callback ch
 					"name":  project.Name,
 					"image": project.Image,
 					"tag":   tag,
+					"marked": boolToString(project.IsReleaseMarked(tag)),
 				}, createdDate)
 			}
 		}

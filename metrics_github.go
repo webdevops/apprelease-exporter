@@ -55,6 +55,7 @@ func (m *MetricsCollectorGithub) Setup(collector *CollectorGeneral) {
 			"name",
 			"project",
 			"release",
+			"marked",
 		},
 	)
 
@@ -98,6 +99,7 @@ func (m *MetricsCollectorGithub) collectProject(ctx context.Context, callback ch
 				"name":    project.Name,
 				"project": project.Project,
 				"release": release.GetTagName(),
+				"marked": boolToString(project.IsReleaseMarked(release.GetTagName())),
 			}, release.GetCreatedAt().Time)
 		}
 

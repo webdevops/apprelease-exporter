@@ -23,6 +23,7 @@ type (
 	ConfigProjectCommon struct {
 		Name   string                    `yaml:"name"`
 		Filter ConfigProjectCommonFilter `yaml:"filter"`
+		Mark   []string  `yaml:"mark"`
 	}
 
 	ConfigProjectCommonFilter struct {
@@ -74,6 +75,19 @@ func (p *ConfigProjectCommon) IsReleaseValid(val string) (ret bool) {
 
 		if p.Filter.blacklistRegexp.MatchString(val) {
 			ret = false
+		}
+	}
+
+	return
+}
+
+func (p *ConfigProjectCommon) IsReleaseMarked(val string) (ret bool) {
+	ret = false
+
+	for _, mark := range p.Mark {
+		if strings.ToLower(mark) == strings.ToLower(val) {
+			ret = true
+			break
 		}
 	}
 
