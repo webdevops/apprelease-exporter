@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
-	"golang.org/x/oauth2"
 	"github.com/google/go-github/v28/github"
 	"github.com/prometheus/client_golang/prometheus"
+	"golang.org/x/oauth2"
 	"time"
 )
 
@@ -31,6 +31,16 @@ func (m *MetricsCollectorGithub) Setup(collector *CollectorGeneral) {
 		)
 		tc := oauth2.NewClient(ctx, ts)
 		m.client = github.NewClient(tc)
+
+		// ping github api to check credentials
+		req, err := m.client.NewRequest("GET", "/", nil)
+		if err != nil {
+			panic(err)
+		}
+		_, err = m.client.Do(ctx, req, nil)
+		if err != nil {
+			panic(err)
+		}
 	} else {
 		// anonymous
 		m.client = github.NewClient(nil)
