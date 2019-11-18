@@ -41,8 +41,44 @@ projects:
       project: kubernetes/kubernetes
       filter: *filterGeneralVersions
 
+    - name: kube-state-metrics
+      project: kubernetes/kube-state-metrics
+      filter: *filterGeneralVersions
+
+    - name: node-problem-detector
+      project: kubernetes/node-problem-detector
+      filter: *filterGeneralVersions
+
+    - name: ingress-nginx
+      project: kubernetes/ingress-nginx
+      filter: *filterGeneralVersions
+
+    - name: external-dns
+      project: kubernetes-sigs/external-dns
+      filter: *filterGeneralVersions
+
+    - name: coredns
+      project: coredns/coredns
+      filter: *filterGeneralVersions
+
+    - name: chaoskube
+      project: linki/chaoskube
+      filter: *filterGeneralVersions
+
+    - name: velero
+      project: vmware-tanzu/velero
+      filter: *filterGeneralVersions
+
     - name: kured
       project: weaveworks/kured
+      filter: *filterGeneralVersions
+
+    - name: kube-janitor
+      project: hjacobs/kube-janitor
+      filter: *filterGeneralVersions
+
+    - name: istio
+      project: istio/istio
       filter: *filterGeneralVersions
 
     - name: ghostunnel
