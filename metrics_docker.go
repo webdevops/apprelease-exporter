@@ -114,8 +114,9 @@ func (m *MetricsCollectorDocker) collectProject(ctx context.Context, callback ch
 						continue
 					}
 
-					createdDate = comp.Created
-					break
+					if createdDate.Before(comp.Created) {
+						createdDate = comp.Created
+					}
 				}
 
 				releaseMetrics.AddTime(prometheus.Labels{
