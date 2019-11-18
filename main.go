@@ -105,7 +105,7 @@ func initMetricCollector() {
 	collectorName = "docker"
 	if opts.ScrapeTimeDocker.Seconds() > 0 {
 		collectorList[collectorName] = NewCollectorGeneral(collectorName, &MetricsCollectorDocker{})
-		collectorList[collectorName].Run(*opts.ScrapeTimeDocker)
+		collectorList[collectorName].Setup(*opts.ScrapeTimeDocker)
 	} else {
 		Logger.Infof("collector[%s]: disabled", collectorName)
 	}
@@ -113,14 +113,19 @@ func initMetricCollector() {
 	collectorName = "github"
 	if opts.ScrapeTimeGithub.Seconds() > 0 {
 		collectorList[collectorName] = NewCollectorGeneral(collectorName, &MetricsCollectorGithub{})
-		collectorList[collectorName].Run(*opts.ScrapeTimeGithub)
+		collectorList[collectorName].Setup(*opts.ScrapeTimeGithub)
 	} else {
 		Logger.Infof("collector[%s]: disabled", collectorName)
 	}
 
+	for _, collector := range collectorList {
+		collector.Run()
+	}
+
 	collector := NewCollectorGeneral("Collector", &MetricsCollectorCollector{})
-	collector.Run(time.Duration(10 * time.Second))
+	collector.Setup(time.Duration(10 * time.Second))
 	collector.SetIsHidden(true)
+	collector.Run()
 }
 
 // start and handle prometheus handler

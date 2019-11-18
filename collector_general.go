@@ -11,10 +11,16 @@ type CollectorGeneral struct {
 	Processor CollectorProcessorGeneralInterface
 }
 
-func (m *CollectorGeneral) Run(scrapeTime time.Duration) {
+func (m *CollectorGeneral) Setup(scrapeTime time.Duration) {
 	m.SetScrapeTime(scrapeTime)
-
 	m.Processor.Setup(m)
+}
+
+func (m *CollectorGeneral) Run() {
+	if m.scrapeTime == nil {
+		panic("No scrapeTime set")
+	}
+
 	go func() {
 		for {
 			go func() {
