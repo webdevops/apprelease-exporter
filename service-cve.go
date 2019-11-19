@@ -139,10 +139,6 @@ func (c *CveResponse) GetReportByVersion(version string) (ret []CveResponseRepor
 	version = strings.ToLower(version)
 	version = strings.TrimLeft(version, "v")
 
-	fmt.Println(version)
-	for key := range c.vulneratbilityVersions {
-		fmt.Println(" -> " + key)
-	}
 	if val, ok := c.vulneratbilityVersions[version]; ok {
 		ret = val
 	}
