@@ -23,13 +23,13 @@ type (
 	ConfigProjectCommon struct {
 		Name   string                    `yaml:"name"`
 		Filter ConfigProjectCommonFilter `yaml:"filter"`
-		Mark   []string  `yaml:"mark"`
+		Mark   []string                  `yaml:"mark"`
 
 		Cve ConfigProjectCommonCve `yaml:"cve"`
 	}
 
 	ConfigProjectCommonCve struct {
-		Vendor string
+		Vendor  string
 		Product string
 	}
 

@@ -39,9 +39,9 @@ var opts struct {
 	ScrapeTimeGithub *time.Duration `long:"scrape-time.github"  env:"SCRAPE_TIME_GITHUB"    description:"Scrape time for Github (time.duration)"`
 
 	// github
-	GithubPersonalAccessToken *string `long:"github.personalaccesstoken"  env:"GITHUB_PERSONALACCESSTOKEN" description:"GitHub personal access token"`
-	GithubScrapeWait time.Duration `long:"github.scrape-wait"  env:"GITHUB_SCRAPEWAIT" description:"Wait number between project waits" default:"2s"`
-	GithubPerPage int `long:"github.perpage"  env:"GITHUB_PERPAGE" description:"Number of results fetched from GitHub" default:"50"`
+	GithubPersonalAccessToken *string       `long:"github.personalaccesstoken"  env:"GITHUB_PERSONALACCESSTOKEN" description:"GitHub personal access token"`
+	GithubScrapeWait          time.Duration `long:"github.scrape-wait"  env:"GITHUB_SCRAPEWAIT" description:"Wait number between project waits" default:"2s"`
+	GithubPerPage             int           `long:"github.perpage"  env:"GITHUB_PERPAGE" description:"Number of results fetched from GitHub" default:"50"`
 }
 
 func main() {

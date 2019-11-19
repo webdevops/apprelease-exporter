@@ -15,11 +15,11 @@ type (
 	MetricsCollectorDocker struct {
 		CollectorProcessorGeneral
 
-		client map[string]*registry.Registry
+		client    map[string]*registry.Registry
 		cveClient *CveClient
 
 		prometheus struct {
-			release *prometheus.GaugeVec
+			release    *prometheus.GaugeVec
 			releaseCve *prometheus.GaugeVec
 		}
 	}
@@ -123,7 +123,6 @@ func (m *MetricsCollectorDocker) collectProject(ctx context.Context, callback ch
 		}
 	}
 
-
 	if imageTags, err := client.Tags(project.Image); err == nil {
 
 		natsort.Sort(imageTags)
@@ -156,9 +155,9 @@ func (m *MetricsCollectorDocker) collectProject(ctx context.Context, callback ch
 				}
 
 				releaseMetrics.AddTime(prometheus.Labels{
-					"name":  project.Name,
-					"image": project.Image,
-					"tag":   tag,
+					"name":   project.Name,
+					"image":  project.Image,
+					"tag":    tag,
 					"marked": boolToString(project.IsReleaseMarked(tag)),
 				}, createdDate)
 			}

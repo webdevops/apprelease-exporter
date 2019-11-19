@@ -12,11 +12,11 @@ type (
 	MetricsCollectorGithub struct {
 		CollectorProcessorGeneral
 
-		client *github.Client
+		client    *github.Client
 		cveClient *CveClient
 
 		prometheus struct {
-			release *prometheus.GaugeVec
+			release    *prometheus.GaugeVec
 			releaseCve *prometheus.GaugeVec
 		}
 	}
@@ -133,7 +133,7 @@ func (m *MetricsCollectorGithub) collectProject(ctx context.Context, callback ch
 				"name":    project.Name,
 				"project": project.Project,
 				"release": releaseVersion,
-				"marked": boolToString(project.IsReleaseMarked(releaseVersion)),
+				"marked":  boolToString(project.IsReleaseMarked(releaseVersion)),
 			}, release.GetCreatedAt().Time)
 
 			if cveReport != nil {

@@ -10,7 +10,7 @@ import (
 
 type (
 	CveClient struct {
-		restClient     *resty.Client
+		restClient *resty.Client
 	}
 
 	CveResponse struct {
@@ -18,7 +18,7 @@ type (
 
 		conf ConfigProjectCommonCve
 
-		report *CveResponseReport
+		report                 *CveResponseReport
 		vulneratbilityVersions map[string][]CveResponseReportResultShort
 	}
 
@@ -27,47 +27,47 @@ type (
 	}
 
 	CveResponseReportResultShort struct {
-		Id string
+		Id   string
 		Cvss float64
 	}
 
 	CveResponseReportResult struct {
 		Id string
 
-		Modified string
+		Modified  string
 		Published string
 
-		Assigner string
-		Cvss float64
-		CvssTime string `json:"cvss-time"`
+		Assigner   string
+		Cvss       float64
+		CvssTime   string `json:"cvss-time"`
 		CvssVector string `json:"cvss-vector"`
-		Cwe string
+		Cwe        string
 
 		Access struct {
 			Authentication string
-			Complexity string
-			Vector string
+			Complexity     string
+			Vector         string
 		}
 
 		Impact struct {
-			Availability string
+			Availability    string
 			Confidentiality string
-			Integrity string
+			Integrity       string
 		}
 
 		References []string
-		Summary string
+		Summary    string
 
-		VulnerableConfiguration []string `json:"vulnerable_configuration"`
+		VulnerableConfiguration       []string `json:"vulnerable_configuration"`
 		VulnerableConfigurationCpe2_2 []string `json:"vulnerable_configuration_cpe_2_2"`
-		VulnerableProduct []string `json:"vulnerable_product"`
+		VulnerableProduct             []string `json:"vulnerable_product"`
 	}
 )
 
 func NewCveClient() *CveClient {
 	c := &CveClient{}
 	c.restClient = resty.New()
-	c.restClient.SetHeader("User-Agent", "apprelease-exporter/" + Version)
+	c.restClient.SetHeader("User-Agent", "apprelease-exporter/"+Version)
 	c.restClient.SetHostURL("https://cve.circl.lu/")
 	c.restClient.SetHeader("Accept", "application/json")
 
@@ -95,7 +95,7 @@ func (c *CveClient) GetCveReport(conf ConfigProjectCommonCve) (*CveResponse, err
 	return r, nil
 }
 
-func (c *CveResponse) parseResponse(resp *resty.Response) (error) {
+func (c *CveResponse) parseResponse(resp *resty.Response) error {
 	confVendor := strings.ToLower(c.conf.Vendor)
 	confProduct := strings.ToLower(c.conf.Product)
 
@@ -117,7 +117,7 @@ func (c *CveResponse) parseResponse(resp *resty.Response) (error) {
 
 				if lineVendor == confVendor && lineProduct == confProduct {
 					shortReport := CveResponseReportResultShort{
-						Id: report.Id,
+						Id:   report.Id,
 						Cvss: report.Cvss,
 					}
 
