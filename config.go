@@ -24,6 +24,13 @@ type (
 		Name   string                    `yaml:"name"`
 		Filter ConfigProjectCommonFilter `yaml:"filter"`
 		Mark   []string  `yaml:"mark"`
+
+		Cve ConfigProjectCommonCve `yaml:"cve"`
+	}
+
+	ConfigProjectCommonCve struct {
+		Vendor string
+		Product string
 	}
 
 	ConfigProjectCommonFilter struct {

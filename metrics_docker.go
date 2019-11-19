@@ -16,9 +16,11 @@ type (
 		CollectorProcessorGeneral
 
 		client map[string]*registry.Registry
+		cveClient *CveClient
 
 		prometheus struct {
 			release *prometheus.GaugeVec
+			releaseCve *prometheus.GaugeVec
 		}
 	}
 
@@ -49,6 +51,8 @@ func (m *MetricsCollectorDocker) Setup(collector *CollectorGeneral) {
 		}
 	}
 
+	m.cveClient = NewCveClient()
+
 	m.prometheus.release = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "apprelease_project_docker_release",
@@ -62,11 +66,26 @@ func (m *MetricsCollectorDocker) Setup(collector *CollectorGeneral) {
 		},
 	)
 
+	m.prometheus.releaseCve = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "apprelease_project_docker_release_cve",
+			Help: "AppRelease project docker cve reports",
+		},
+		[]string{
+			"name",
+			"image",
+			"tag",
+			"cve",
+		},
+	)
+
 	prometheus.MustRegister(m.prometheus.release)
+	prometheus.MustRegister(m.prometheus.releaseCve)
 }
 
 func (m *MetricsCollectorDocker) Reset() {
 	m.prometheus.release.Reset()
+	m.prometheus.releaseCve.Reset()
 }
 
 func (m *MetricsCollectorDocker) Collect(ctx context.Context, callback chan<- func()) {
@@ -83,12 +102,27 @@ func (m *MetricsCollectorDocker) Collect(ctx context.Context, callback chan<- fu
 }
 
 func (m *MetricsCollectorDocker) collectProject(ctx context.Context, callback chan<- func(), project ConfigProjectDocker) {
+	var err error
+	var cveReport *CveResponse
+
 	releaseMetrics := MetricCollectorList{}
+	releaseCveMetrics := MetricCollectorList{}
 
 	registryUrl, _, _ := project.GetRegistry()
 	client := m.client[registryUrl]
 
 	Logger.Infof("project[%v]: starting collection", project.Name)
+
+	// init and fetch CVE
+	if project.Cve.Vendor != "" && project.Cve.Product != "" {
+		Logger.Infof("project[%v]: fetching cve report", project.Name)
+		cveReport, err = m.cveClient.GetCveReport(project.Cve)
+
+		if err != nil {
+			Logger.Errorf("project[%v]: %v", project.Name, err)
+		}
+	}
+
 
 	if imageTags, err := client.Tags(project.Image); err == nil {
 
@@ -128,6 +162,19 @@ func (m *MetricsCollectorDocker) collectProject(ctx context.Context, callback ch
 					"marked": boolToString(project.IsReleaseMarked(tag)),
 				}, createdDate)
 			}
+
+			if cveReport != nil {
+				reportList := cveReport.GetReportByVersion(tag)
+
+				for _, report := range reportList {
+					releaseCveMetrics.Add(prometheus.Labels{
+						"name":  project.Name,
+						"image": project.Image,
+						"tag":   tag,
+						"cve":   report.Id,
+					}, report.Cvss)
+				}
+			}
 		}
 
 	} else {
@@ -137,5 +184,6 @@ func (m *MetricsCollectorDocker) collectProject(ctx context.Context, callback ch
 	// set metrics
 	callback <- func() {
 		releaseMetrics.GaugeSet(m.prometheus.release)
+		releaseCveMetrics.GaugeSet(m.prometheus.releaseCve)
 	}
 }

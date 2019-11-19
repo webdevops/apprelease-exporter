@@ -39,12 +39,18 @@ projects:
   github:
     - name: kubernetes
       project: kubernetes/kubernetes
+      cve:
+        vendor: kubernetes
+        product: kubernetes
       mark:
       - "v1.16.3"
       filter: *filterGeneralVersions
 
     - name: kube-state-metrics
       project: kubernetes/kube-state-metrics
+      cve:
+        vendor: kubernetes
+        product: kube-state-metrics
       filter: *filterGeneralVersions
 
     - name: node-problem-detector
@@ -53,6 +59,9 @@ projects:
 
     - name: ingress-nginx
       project: kubernetes/ingress-nginx
+      cve:
+        vendor: nginx
+        product: nginx
       filter: *filterGeneralVersions
 
     - name: external-dns
@@ -81,14 +90,23 @@ projects:
 
     - name: istio
       project: istio/istio
+      cve:
+        vendor: istio
+        product: istio
       filter: *filterGeneralVersions
 
     - name: ghostunnel
       project: square/ghostunnel
+      cve:
+        vendor: squareup
+        product: ghostunnel
       filter: *filterGeneralVersions
 
     - name: prometheus-server
       project: prometheus/prometheus
+      cve:
+        vendor: prometheus
+        product: prometheus
       filter: *filterGeneralVersions
 
     - name: prometheus-alertmanager
@@ -101,6 +119,9 @@ projects:
 
     - name: grafana
       project: grafana/grafana
+      cve:
+        vendor: grafana
+        product: grafana
       filter: *filterGeneralVersions
 
     - name: fluentbit
@@ -109,12 +130,35 @@ projects:
 
     - name: docker
       project: docker/docker-ce
+      cve:
+        vendor: docker
+        product: docker
       filter: *filterGeneralVersions
 
     - name: elasticsearch
       project: elastic/elasticsearch
+      cve:
+        vendor: elasticsearch
+        product: elasticsearch
+      filter: *filterGeneralVersions
+
+    - name: elasticsearch-kibana
+      project: elastic/kibana
+      cve:
+        vendor: elasticsearch
+        product: kibana
+      filter: *filterGeneralVersions
+
+    - name: elasticsearch-logstash
+      project: elastic/logstash
+      cve:
+        vendor: elasticsearch
+        product: logstash
       filter: *filterGeneralVersions
 
     - name: helm
       project: helm/helm
+      cve:
+        vendor: helm
+        product: helm
       filter: *filterGeneralVersions

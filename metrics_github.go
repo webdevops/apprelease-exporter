@@ -13,9 +13,11 @@ type (
 		CollectorProcessorGeneral
 
 		client *github.Client
+		cveClient *CveClient
 
 		prometheus struct {
 			release *prometheus.GaugeVec
+			releaseCve *prometheus.GaugeVec
 		}
 	}
 )
@@ -46,6 +48,8 @@ func (m *MetricsCollectorGithub) Setup(collector *CollectorGeneral) {
 		m.client = github.NewClient(nil)
 	}
 
+	m.cveClient = NewCveClient()
+
 	m.prometheus.release = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "apprelease_project_github_release",
@@ -59,11 +63,26 @@ func (m *MetricsCollectorGithub) Setup(collector *CollectorGeneral) {
 		},
 	)
 
+	m.prometheus.releaseCve = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "apprelease_project_github_release_cve",
+			Help: "AppRelease project github release cve reports",
+		},
+		[]string{
+			"name",
+			"project",
+			"release",
+			"cve",
+		},
+	)
+
 	prometheus.MustRegister(m.prometheus.release)
+	prometheus.MustRegister(m.prometheus.releaseCve)
 }
 
 func (m *MetricsCollectorGithub) Reset() {
 	m.prometheus.release.Reset()
+	m.prometheus.releaseCve.Reset()
 }
 
 func (m *MetricsCollectorGithub) Collect(ctx context.Context, callback chan<- func()) {
@@ -77,11 +96,24 @@ func (m *MetricsCollectorGithub) Collect(ctx context.Context, callback chan<- fu
 }
 
 func (m *MetricsCollectorGithub) collectProject(ctx context.Context, callback chan<- func(), project ConfigProjectGithub) {
+	var err error
+	var cveReport *CveResponse
+
 	releaseMetrics := MetricCollectorList{}
+	releaseCveMetrics := MetricCollectorList{}
 
 	githubOwner, githubRepository := project.GetOwnerAndRepository()
-
 	Logger.Infof("project[%v]: starting collection", project.Name)
+
+	// init and fetch CVE
+	if project.Cve.Vendor != "" && project.Cve.Product != "" {
+		Logger.Infof("project[%v]: fetching cve report", project.Name)
+		cveReport, err = m.cveClient.GetCveReport(project.Cve)
+
+		if err != nil {
+			Logger.Errorf("project[%v]: %v", project.Name, err)
+		}
+	}
 
 	listOpts := &github.ListOptions{
 		Page:    0,
@@ -91,16 +123,31 @@ func (m *MetricsCollectorGithub) collectProject(ctx context.Context, callback ch
 	if err == nil {
 
 		for _, release := range releaseList {
-			if !project.IsReleaseValid(release.GetTagName()) {
+			releaseVersion := release.GetTagName()
+
+			if !project.IsReleaseValid(releaseVersion) {
 				continue
 			}
 
 			releaseMetrics.AddTime(prometheus.Labels{
 				"name":    project.Name,
 				"project": project.Project,
-				"release": release.GetTagName(),
-				"marked": boolToString(project.IsReleaseMarked(release.GetTagName())),
+				"release": releaseVersion,
+				"marked": boolToString(project.IsReleaseMarked(releaseVersion)),
 			}, release.GetCreatedAt().Time)
+
+			if cveReport != nil {
+				reportList := cveReport.GetReportByVersion(releaseVersion)
+
+				for _, report := range reportList {
+					releaseCveMetrics.Add(prometheus.Labels{
+						"name":    project.Name,
+						"project": project.Project,
+						"release": releaseVersion,
+						"cve":     report.Id,
+					}, report.Cvss)
+				}
+			}
 		}
 
 	} else {
@@ -110,5 +157,6 @@ func (m *MetricsCollectorGithub) collectProject(ctx context.Context, callback ch
 	// set metrics
 	callback <- func() {
 		releaseMetrics.GaugeSet(m.prometheus.release)
+		releaseCveMetrics.GaugeSet(m.prometheus.releaseCve)
 	}
 }
