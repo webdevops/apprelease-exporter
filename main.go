@@ -34,7 +34,7 @@ var opts struct {
 	ServerBind string `long:"bind"  env:"SERVER_BIND"  description:"Server address"  default:":8080"`
 
 	// scrape times
-	ScrapeTime       time.Duration  `long:"scrape-time"         env:"SCRAPE_TIME"              description:"Default scrape time (time.duration)"       default:"3h"`
+	ScrapeTime       time.Duration  `long:"scrape-time"         env:"SCRAPE_TIME"           description:"Default scrape time (time.duration)"       default:"12h"`
 	ScrapeTimeDocker *time.Duration `long:"scrape-time.docker"  env:"SCRAPE_TIME_DOCKER"    description:"Scrape time for Docker (time.duration)"`
 	ScrapeTimeGithub *time.Duration `long:"scrape-time.github"  env:"SCRAPE_TIME_GITHUB"    description:"Scrape time for Github (time.duration)"`
 
