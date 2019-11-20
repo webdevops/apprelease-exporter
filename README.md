@@ -43,5 +43,5 @@ Metrics
 Example
 --------
 
-see [example-metrics.txt](exampe-metrics.txt)
-or example with cve [example-metrics-with-cve.txt](exampe-metrics-with-cve.txt)
+see [eexample/metrics.txt](example/metrics.txt)
+or example with cve report metrics [example/metrics-cve.txt](example/metrics-cve.txt)
