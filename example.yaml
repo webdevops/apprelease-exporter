@@ -1,5 +1,5 @@
 # this is not an actual configuration option but used as reference
-# this is a yaml feature, see
+# this is a yaml feature, see https://yaml.org/spec/1.2/spec.html#&%20anchor//
 filters:
   # this filter configuration is used in references below
   # so we only have one configuration here -> easier and less code
