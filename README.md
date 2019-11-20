@@ -1,11 +1,11 @@
-AppRelease Exporter
-==============================
+AppRelease and CVE Exporter
+===========================
 
 [![license](https://img.shields.io/github/license/webdevops/apprelease-exporter.svg)](https://github.com/webdevops/apprelease-exporter/blob/master/LICENSE)
 [![Docker](https://img.shields.io/badge/docker-webdevops%2Fapprelease--exporter-blue.svg?longCache=true&style=flat&logo=docker)](https://hub.docker.com/r/webdevops/apprelease-exporter/)
 [![Docker Build Status](https://img.shields.io/docker/build/webdevops/apprelease-exporter.svg)](https://hub.docker.com/r/webdevops/apprelease-exporter/)
 
-Prometheus exporter for Application releases supports Docker and GitHub and is also able to fetch CVE reports.
+Prometheus exporter for Application releases supports Docker and GitHub and is able to fetch CVE reports via [https://cve.circl.lu/](https://cve.circl.lu/).
 
 Configuration
 -------------
@@ -19,9 +19,16 @@ Normally no configuration is needed but can be customized using environment vari
 | `SCRAPE_TIME_DOCKER`              | -> SCRAPE_TIME              | Scrape time for Docker releases                                   |
 | `SCRAPE_TIME_GITHUB  `            | -> SCRAPE_TIME              | Scrape time for GitHub releases                                   |
 | `SERVER_BIND`                     | `:8080`                     | IP/Port binding                                                   |
+| `DISABLE_CVE`                     | `empty`                     | Disable CVE report fetching (even if configured)                  |
 | `GITHUB_PERSONALACCESSTOKEN`      | `empty`                     | GitHub personal access token for avoiding rate limit              |
 | `GITHUB_SCRAPEWAIT`               | `2s`                        | Wait time between release scrapings to releax api stress          |
-| `GITHUB_PERPAGE`                  | `50`                        | Number of releases to fetch (only first page is scraped)          |
+| `GITHUB_LIMIT`                    | `25`                        | Number of releases to fetch (only first page is scraped)          |
+| `DOCKER_LIMIT`                    | `25`                        | Number of releases to fetch (only first page is scraped)          |
+
+Configuration file
+------------------
+
+see [example.yaml](example.yaml)
 
 Metrics
 -------

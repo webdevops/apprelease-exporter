@@ -1,21 +1,54 @@
+# this is not an actual configuration option but used as reference
+# this is a yaml feature, see
 filters:
+  # this filter configuration is used in references below
+  # so we only have one configuration here -> easier and less code
   filterGeneralVersions: &filterGeneralVersions
     whitelist: |
-      ^v?[0-9]*\.([-_\.0-9])*$
+      ^[0-9]+\.[0-9]+(\.[-_0-9]+)*$
+    replacement:
+      - match: "^(v|release-)(.+)$"
+        replace: "$2"
 
 projects:
 
+  #####################
+  ## Docker
+  #####################
   docker:
+    # example docker repo from docker hub
     - name: azure-resourcemanager-exporter
       image: webdevops/azure-resourcemanager-exporter
       filter: *filterGeneralVersions
 
+    # example docker repo with custom registry
     - name: elasticsaerch
       image: elasticsearch/elasticsearch
       registry:
         url: https://docker.elastic.co
       filter: *filterGeneralVersions
 
+    # example docker repo from docker hub with CVE enabled
+    - name: ghostunnel
+      image: squareup/ghostunnel
+      cve:
+        vendor: squareup
+        product: ghostunnel
+      # get only 5 tags/versions
+      limit: 5
+      filter: *filterGeneralVersions
+
+    # example docker repo from docker hub with CVE enabled
+    - name: mysql
+      image: library/mysql
+      cve:
+        vendor: oracle
+        product: mysql
+      # get 50 tags/version
+      limit: 50
+      filter: *filterGeneralVersions
+
+    # example docker repo from google container registry (needs service account)
 #    - name: etcd
 #      image: google-containers/etcd-amd64
 #      registry:
@@ -36,14 +69,30 @@ projects:
 #          }
 #      filter: *filterGeneralVersions
 
+  #####################
+  ## GitHub
+  #####################
   github:
+    # example github account w/o github releases but with CVE reports
+    # we're fetching via tags (fetchType: tags) here
+    - name: nginx
+      project: nginx/nginx
+      fetchType: tags
+      cve:
+        vendor: nginx
+        product: nginx
+      limit: 15
+      filter: *filterGeneralVersions
+
+    # example github account w/ github releases, CVE report and one marked version
     - name: kubernetes
       project: kubernetes/kubernetes
       cve:
         vendor: kubernetes
         product: kubernetes
       mark:
-      - "v1.16.3"
+      # marks version v1.16.3 with marked="true"
+      - "1.16.3"
       filter: *filterGeneralVersions
 
     - name: kube-state-metrics

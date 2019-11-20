@@ -10,16 +10,16 @@ import (
 
 type (
 	CveClient struct {
+		conf ConfigProjectCommonCve
+
 		restClient *resty.Client
 	}
 
 	CveResponse struct {
-		response *resty.Response
-
-		conf ConfigProjectCommonCve
-
+		response               *resty.Response
+		conf                   ConfigProjectCommonCve
 		report                 *CveResponseReport
-		vulneratbilityVersions map[string][]CveResponseReportResultShort
+		vulneratbilityVersions map[string]map[string]CveResponseReportResultShort
 	}
 
 	CveResponseReport struct {
@@ -27,8 +27,10 @@ type (
 	}
 
 	CveResponseReportResultShort struct {
-		Id   string
-		Cvss float64
+		Id     string
+		Cvss   float64
+		Access CveResponseReportResultAccess
+		Impact CveResponseReportResultImpact
 	}
 
 	CveResponseReportResult struct {
@@ -43,17 +45,8 @@ type (
 		CvssVector string `json:"cvss-vector"`
 		Cwe        string
 
-		Access struct {
-			Authentication string
-			Complexity     string
-			Vector         string
-		}
-
-		Impact struct {
-			Availability    string
-			Confidentiality string
-			Integrity       string
-		}
+		Access CveResponseReportResultAccess
+		Impact CveResponseReportResultImpact
 
 		References []string
 		Summary    string
@@ -62,10 +55,25 @@ type (
 		VulnerableConfigurationCpe2_2 []string `json:"vulnerable_configuration_cpe_2_2"`
 		VulnerableProduct             []string `json:"vulnerable_product"`
 	}
+
+	CveResponseReportResultAccess struct {
+		Authentication string
+		Complexity     string
+		Vector         string
+	}
+
+	CveResponseReportResultImpact struct {
+		Availability    string
+		Confidentiality string
+		Integrity       string
+	}
 )
 
-func NewCveClient() *CveClient {
+func NewCveClient(conf ConfigProjectCommonCve) *CveClient {
 	c := &CveClient{}
+
+	c.conf = conf
+
 	c.restClient = resty.New()
 	c.restClient.SetHeader("User-Agent", "apprelease-exporter/"+Version)
 	c.restClient.SetHostURL("https://cve.circl.lu/")
@@ -74,11 +82,11 @@ func NewCveClient() *CveClient {
 	return c
 }
 
-func (c *CveClient) GetCveReport(conf ConfigProjectCommonCve) (*CveResponse, error) {
+func (c *CveClient) FetchReport() (*CveResponse, error) {
 	u := fmt.Sprintf(
 		"/api/search/%v/%v",
-		url.PathEscape(conf.Product),
-		url.PathEscape(conf.Vendor),
+		url.PathEscape(c.conf.Vendor),
+		url.PathEscape(c.conf.Product),
 	)
 	resp, err := c.restClient.R().Get(u)
 	if err != nil {
@@ -86,7 +94,7 @@ func (c *CveClient) GetCveReport(conf ConfigProjectCommonCve) (*CveResponse, err
 	}
 
 	r := &CveResponse{
-		conf: conf,
+		conf: c.conf,
 	}
 	if err := r.parseResponse(resp); err != nil {
 		return nil, err
@@ -96,51 +104,63 @@ func (c *CveClient) GetCveReport(conf ConfigProjectCommonCve) (*CveResponse, err
 }
 
 func (c *CveResponse) parseResponse(resp *resty.Response) error {
-	confVendor := strings.ToLower(c.conf.Vendor)
-	confProduct := strings.ToLower(c.conf.Product)
-
 	c.report = &CveResponseReport{}
-	c.vulneratbilityVersions = map[string][]CveResponseReportResultShort{}
+	c.vulneratbilityVersions = map[string]map[string]CveResponseReportResultShort{}
 
 	if err := json.Unmarshal(resp.Body(), &c.report); err != nil {
 		return err
 	}
 
 	for _, report := range c.report.Results {
-		for _, line := range report.VulnerableProduct {
-			parsedLine := strings.Split(line, ":")
+		c.parseReportLine(report, report.VulnerableProduct)
+		c.parseReportLine(report, report.VulnerableConfiguration)
+		c.parseReportLine(report, report.VulnerableConfigurationCpe2_2)
+	}
 
-			if len(parsedLine) > 6 {
-				lineVendor := strings.ToLower(parsedLine[3])
-				lineProduct := strings.ToLower(parsedLine[4])
-				lineVersion := strings.ToLower(parsedLine[5])
+	// cleanup
+	c.report = nil
 
-				if lineVendor == confVendor && lineProduct == confProduct {
-					shortReport := CveResponseReportResultShort{
-						Id:   report.Id,
-						Cvss: report.Cvss,
-					}
+	return nil
+}
 
-					c.vulneratbilityVersions[lineVersion] = append(
-						c.vulneratbilityVersions[lineVersion],
-						shortReport,
-					)
+func (c *CveResponse) parseReportLine(report CveResponseReportResult, reportLines []string) {
+	vendor := strings.ToLower(c.conf.Vendor)
+	product := strings.ToLower(c.conf.Product)
+
+	for _, line := range reportLines {
+		parsedLine := strings.Split(line, ":")
+
+		if len(parsedLine) >= 5 {
+			lineVendor := strings.ToLower(parsedLine[3])
+			lineProduct := strings.ToLower(parsedLine[4])
+			lineVersion := strings.ToLower(parsedLine[5])
+
+			if lineVendor == vendor && lineProduct == product {
+				shortReport := CveResponseReportResultShort{
+					Id:     report.Id,
+					Cvss:   report.Cvss,
+					Access: report.Access,
+					Impact: report.Impact,
 				}
+
+				if _, ok := c.vulneratbilityVersions[lineVersion]; !ok {
+					c.vulneratbilityVersions[lineVersion] = map[string]CveResponseReportResultShort{}
+				}
+
+				c.vulneratbilityVersions[lineVersion][report.Id] = shortReport
 			}
 		}
 	}
-
-	return nil
 }
 
 func (c *CveResponse) GetReportByVersion(version string) (ret []CveResponseReportResultShort) {
 	ret = []CveResponseReportResultShort{}
 
 	version = strings.ToLower(version)
-	version = strings.TrimLeft(version, "v")
-
-	if val, ok := c.vulneratbilityVersions[version]; ok {
-		ret = val
+	if reports, ok := c.vulneratbilityVersions[version]; ok {
+		for _, report := range reports {
+			ret = append(ret, report)
+		}
 	}
 
 	return ret

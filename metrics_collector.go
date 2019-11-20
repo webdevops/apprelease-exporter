@@ -3,11 +3,18 @@ package main
 import (
 	"context"
 	"github.com/prometheus/client_golang/prometheus"
+	"time"
 )
 
 type (
 	MetricsCollectorCollector struct {
 		CollectorProcessorGeneral
+	}
+
+	AppreleaseVersion struct {
+		Tag       string
+		Version   string
+		CreatedAt *time.Time
 	}
 )
 

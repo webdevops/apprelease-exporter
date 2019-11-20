@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"github.com/heroku/docker-registry-client/registry"
 	"github.com/prometheus/client_golang/prometheus"
+	"math"
+	"sort"
 	"sync"
 	"time"
 )
@@ -15,8 +17,7 @@ type (
 	MetricsCollectorDocker struct {
 		CollectorProcessorGeneral
 
-		client    map[string]*registry.Registry
-		cveClient *CveClient
+		client map[string]*registry.Registry
 
 		prometheus struct {
 			release    *prometheus.GaugeVec
@@ -51,8 +52,6 @@ func (m *MetricsCollectorDocker) Setup(collector *CollectorGeneral) {
 		}
 	}
 
-	m.cveClient = NewCveClient()
-
 	m.prometheus.release = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "apprelease_project_docker_release",
@@ -62,6 +61,7 @@ func (m *MetricsCollectorDocker) Setup(collector *CollectorGeneral) {
 			"name",
 			"image",
 			"tag",
+			"version",
 			"marked",
 		},
 	)
@@ -74,8 +74,14 @@ func (m *MetricsCollectorDocker) Setup(collector *CollectorGeneral) {
 		[]string{
 			"name",
 			"image",
-			"tag",
+			"version",
 			"cve",
+			"accessAuthentication",
+			"accessComplexity",
+			"accessVector",
+			"impactAvailability",
+			"impactConfidentiality",
+			"impactIntegrity",
 		},
 	)
 
@@ -114,63 +120,60 @@ func (m *MetricsCollectorDocker) collectProject(ctx context.Context, callback ch
 	Logger.Infof("project[%v]: starting collection", project.Name)
 
 	// init and fetch CVE
-	if project.Cve.Vendor != "" && project.Cve.Product != "" {
+	cveClient := project.CveReportClient()
+	if cveClient != nil {
 		Logger.Infof("project[%v]: fetching cve report", project.Name)
-		cveReport, err = m.cveClient.GetCveReport(project.Cve)
+		cveReport, err = cveClient.FetchReport()
 
 		if err != nil {
 			Logger.Errorf("project[%v]: %v", project.Name, err)
 		}
 	}
 
-	if imageTags, err := client.Tags(project.Image); err == nil {
+	releaseList, err := m.fetchDockerTags(ctx, project, client)
 
-		natsort.Sort(imageTags)
-
-		for _, tag := range imageTags {
-			if !project.IsReleaseValid(tag) {
-				continue
-			}
-
-			releaseMetrics.AddInfo(prometheus.Labels{
-				"name":   project.Name,
-				"image":  project.Image,
-				"tag":    tag,
-				"marked": boolToString(project.IsReleaseMarked(tag)),
-			})
-
-			if manifest, err := client.Manifest(project.Image, tag); err == nil {
-				var createdDate time.Time
-				for _, h := range manifest.Manifest.History {
-					var comp dockerManifestv1Compatibility
-
-					if err := json.Unmarshal([]byte(h.V1Compatibility), &comp); err != nil {
-						Logger.Errorf("project[%v]: %v", project.Name, err)
-						continue
-					}
-
-					if createdDate.Before(comp.Created) {
-						createdDate = comp.Created
-					}
-				}
-
+	if err == nil {
+		for _, release := range releaseList {
+			if release.CreatedAt != nil {
+				Logger.Verbosef("project[%v]: found version %v on date %v", project.Name, release.Version, release.CreatedAt.String())
 				releaseMetrics.AddTime(prometheus.Labels{
-					"name":   project.Name,
-					"image":  project.Image,
-					"tag":    tag,
-					"marked": boolToString(project.IsReleaseMarked(tag)),
-				}, createdDate)
+					"name":    project.Name,
+					"image":   project.Image,
+					"tag":     release.Tag,
+					"version": release.Version,
+					"marked":  boolToString(project.IsReleaseMarked(release.Version)),
+				}, *release.CreatedAt)
+
+			} else {
+				Logger.Verbosef("project[%v]: found version %v without date", project.Name, release.Version)
+
+				releaseMetrics.AddInfo(prometheus.Labels{
+					"name":    project.Name,
+					"image":   project.Image,
+					"tag":     release.Tag,
+					"version": release.Version,
+					"marked":  boolToString(project.IsReleaseMarked(release.Version)),
+				})
 			}
 
+			// add cve report
 			if cveReport != nil {
-				reportList := cveReport.GetReportByVersion(tag)
+				reportList := cveReport.GetReportByVersion(release.Version)
+
+				Logger.Verbosef("project[%v]: found %v cve reports for version %v", project.Name, len(reportList), release.Version)
 
 				for _, report := range reportList {
 					releaseCveMetrics.Add(prometheus.Labels{
-						"name":  project.Name,
-						"image": project.Image,
-						"tag":   tag,
-						"cve":   report.Id,
+						"name":                  project.Name,
+						"image":                 project.Image,
+						"version":               release.Version,
+						"cve":                   report.Id,
+						"accessAuthentication":  report.Access.Authentication,
+						"accessComplexity":      report.Access.Complexity,
+						"accessVector":          report.Access.Vector,
+						"impactAvailability":    report.Impact.Availability,
+						"impactConfidentiality": report.Impact.Confidentiality,
+						"impactIntegrity":       report.Impact.Integrity,
 					}, report.Cvss)
 				}
 			}
@@ -185,4 +188,64 @@ func (m *MetricsCollectorDocker) collectProject(ctx context.Context, callback ch
 		releaseMetrics.GaugeSet(m.prometheus.release)
 		releaseCveMetrics.GaugeSet(m.prometheus.releaseCve)
 	}
+}
+
+func (m *MetricsCollectorDocker) fetchDockerTags(ctx context.Context, project ConfigProjectDocker, client *registry.Registry) (releaseList []AppreleaseVersion, err error) {
+	var createdAt *time.Time
+	releaseList = []AppreleaseVersion{}
+
+	if rawImageTags, err := client.Tags(project.Image); err == nil {
+		// remove all invalid versions
+		imageTags := []string{}
+		for _, rawTag := range rawImageTags {
+			_, valid := project.ProcessAndValidateVersion(rawTag)
+			if !valid {
+				// skip invalid version
+				continue
+			}
+
+			imageTags = append(imageTags, rawTag)
+		}
+
+		// natural sort and reverse, get latest versions
+		natsort.Sort(imageTags)
+		sort.Sort(sort.Reverse(sort.StringSlice(imageTags)))
+
+		// apply limit
+		sliceLimit := int(math.Min(float64(len(imageTags)), float64(project.GetLimit())))
+		imageTags = imageTags[:sliceLimit]
+
+		for _, tag := range imageTags {
+			createdAt = nil
+
+			version, valid := project.ProcessAndValidateVersion(tag)
+			if !valid {
+				// skip invalid version
+				continue
+			}
+
+			if manifest, err := client.Manifest(project.Image, tag); err == nil {
+				for _, h := range manifest.Manifest.History {
+					var comp dockerManifestv1Compatibility
+
+					if err := json.Unmarshal([]byte(h.V1Compatibility), &comp); err != nil {
+						Logger.Errorf("project[%v]: %v", project.Name, err)
+						continue
+					}
+
+					if createdAt == nil || createdAt.Before(comp.Created) {
+						createdAt = &comp.Created
+					}
+				}
+			}
+
+			releaseList = append(releaseList, AppreleaseVersion{
+				Tag:       tag,
+				Version:   version,
+				CreatedAt: createdAt,
+			})
+		}
+	}
+
+	return
 }

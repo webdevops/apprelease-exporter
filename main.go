@@ -38,10 +38,16 @@ var opts struct {
 	ScrapeTimeDocker *time.Duration `long:"scrape-time.docker"  env:"SCRAPE_TIME_DOCKER"    description:"Scrape time for Docker (time.duration)"`
 	ScrapeTimeGithub *time.Duration `long:"scrape-time.github"  env:"SCRAPE_TIME_GITHUB"    description:"Scrape time for Github (time.duration)"`
 
+	// settings
+	DisableCve bool `long:"disable.cve"  env:"DISABLE_CVE"    description:"Disable CVE reports"`
+
 	// github
 	GithubPersonalAccessToken *string       `long:"github.personalaccesstoken"  env:"GITHUB_PERSONALACCESSTOKEN" description:"GitHub personal access token"`
 	GithubScrapeWait          time.Duration `long:"github.scrape-wait"  env:"GITHUB_SCRAPEWAIT" description:"Wait number between project waits" default:"2s"`
-	GithubPerPage             int           `long:"github.perpage"  env:"GITHUB_PERPAGE" description:"Number of results fetched from GitHub" default:"50"`
+	GithubLimit               int           `long:"github.limit"  env:"GITHUB_LIMIT" description:"Number of results fetched from GitHub" default:"25"`
+
+	//docker
+	DockerLimit int `long:"docker.limit"  env:"DOCKER_LIMIT" description:"Number of tags fetched from Docker" default:"25"`
 }
 
 func main() {
@@ -61,6 +67,12 @@ func main() {
 
 	Logger.Infof("Starting metrics collection")
 	Logger.Infof("  scape time: %v", opts.ScrapeTime)
+
+	if opts.DisableCve {
+		Logger.Infof("  cve report: disabled")
+	} else {
+		Logger.Infof("  cve report: enabled")
+	}
 
 	initMetricCollector()
 

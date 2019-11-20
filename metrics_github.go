@@ -12,8 +12,7 @@ type (
 	MetricsCollectorGithub struct {
 		CollectorProcessorGeneral
 
-		client    *github.Client
-		cveClient *CveClient
+		client *github.Client
 
 		prometheus struct {
 			release    *prometheus.GaugeVec
@@ -48,8 +47,6 @@ func (m *MetricsCollectorGithub) Setup(collector *CollectorGeneral) {
 		m.client = github.NewClient(nil)
 	}
 
-	m.cveClient = NewCveClient()
-
 	m.prometheus.release = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "apprelease_project_github_release",
@@ -58,7 +55,8 @@ func (m *MetricsCollectorGithub) Setup(collector *CollectorGeneral) {
 		[]string{
 			"name",
 			"project",
-			"release",
+			"tag",
+			"version",
 			"marked",
 		},
 	)
@@ -71,8 +69,14 @@ func (m *MetricsCollectorGithub) Setup(collector *CollectorGeneral) {
 		[]string{
 			"name",
 			"project",
-			"release",
+			"version",
 			"cve",
+			"accessAuthentication",
+			"accessComplexity",
+			"accessVector",
+			"impactAvailability",
+			"impactConfidentiality",
+			"impactIntegrity",
 		},
 	)
 
@@ -97,54 +101,69 @@ func (m *MetricsCollectorGithub) Collect(ctx context.Context, callback chan<- fu
 
 func (m *MetricsCollectorGithub) collectProject(ctx context.Context, callback chan<- func(), project ConfigProjectGithub) {
 	var err error
+	var releaseList []AppreleaseVersion
 	var cveReport *CveResponse
 
 	releaseMetrics := MetricCollectorList{}
 	releaseCveMetrics := MetricCollectorList{}
 
-	githubOwner, githubRepository := project.GetOwnerAndRepository()
 	Logger.Infof("project[%v]: starting collection", project.Name)
 
 	// init and fetch CVE
-	if project.Cve.Vendor != "" && project.Cve.Product != "" {
+	cveClient := project.CveReportClient()
+	if cveClient != nil {
 		Logger.Infof("project[%v]: fetching cve report", project.Name)
-		cveReport, err = m.cveClient.GetCveReport(project.Cve)
+		cveReport, err = cveClient.FetchReport()
 
 		if err != nil {
 			Logger.Errorf("project[%v]: %v", project.Name, err)
 		}
 	}
 
-	listOpts := &github.ListOptions{
-		Page:    0,
-		PerPage: opts.GithubPerPage,
+	switch project.GetFetchType() {
+	case "tags":
+		Logger.Infof("project[%v]: fetching github versions from tags", project.Name)
+		releaseList, err = m.fetchGithubVersionFromTags(ctx, project)
+		break
+
+	default:
+		Logger.Infof("project[%v]: fetching github versions from releases", project.Name)
+		releaseList, err = m.fetchGithubVersionFromReleases(ctx, project)
+		break
 	}
-	releaseList, _, err := m.client.Repositories.ListReleases(ctx, githubOwner, githubRepository, listOpts)
+
 	if err == nil {
+		Logger.Infof("project[%v]: found %v releases", project.Name, len(releaseList))
 
 		for _, release := range releaseList {
-			releaseVersion := release.GetTagName()
-
-			if !project.IsReleaseValid(releaseVersion) {
-				continue
-			}
+			Logger.Verbosef("project[%v]: found version %v on date %v", project.Name, release.Version, release.CreatedAt.String())
 
 			releaseMetrics.AddTime(prometheus.Labels{
 				"name":    project.Name,
 				"project": project.Project,
-				"release": releaseVersion,
-				"marked":  boolToString(project.IsReleaseMarked(releaseVersion)),
-			}, release.GetCreatedAt().Time)
+				"tag":     release.Tag,
+				"version": release.Version,
+				"marked":  boolToString(project.IsReleaseMarked(release.Version)),
+			}, *release.CreatedAt)
 
+			// add cve report
 			if cveReport != nil {
-				reportList := cveReport.GetReportByVersion(releaseVersion)
+				reportList := cveReport.GetReportByVersion(release.Version)
+
+				Logger.Verbosef("project[%v]: found %v cve reports for version %v", project.Name, len(reportList), release.Version)
 
 				for _, report := range reportList {
 					releaseCveMetrics.Add(prometheus.Labels{
-						"name":    project.Name,
-						"project": project.Project,
-						"release": releaseVersion,
-						"cve":     report.Id,
+						"name":                  project.Name,
+						"project":               project.Project,
+						"version":               release.Version,
+						"cve":                   report.Id,
+						"accessAuthentication":  report.Access.Authentication,
+						"accessComplexity":      report.Access.Complexity,
+						"accessVector":          report.Access.Vector,
+						"impactAvailability":    report.Impact.Availability,
+						"impactConfidentiality": report.Impact.Confidentiality,
+						"impactIntegrity":       report.Impact.Integrity,
 					}, report.Cvss)
 				}
 			}
@@ -154,9 +173,81 @@ func (m *MetricsCollectorGithub) collectProject(ctx context.Context, callback ch
 		Logger.Errorf("project[%v]: %v", project.Name, err)
 	}
 
+	Logger.Infof("project[%v]: finished", project.Name)
+
 	// set metrics
 	callback <- func() {
 		releaseMetrics.GaugeSet(m.prometheus.release)
 		releaseCveMetrics.GaugeSet(m.prometheus.releaseCve)
 	}
+}
+
+func (m *MetricsCollectorGithub) fetchGithubVersionFromReleases(ctx context.Context, project ConfigProjectGithub) (releaseList []AppreleaseVersion, err error) {
+	releaseList = []AppreleaseVersion{}
+
+	githubOwner, githubRepository := project.GetOwnerAndRepository()
+
+	listOpts := &github.ListOptions{
+		Page:    0,
+		PerPage: project.GetLimit(),
+	}
+	if respReleases, _, respError := m.client.Repositories.ListReleases(ctx, githubOwner, githubRepository, listOpts); respError == nil {
+		for _, release := range respReleases {
+			version, valid := project.ProcessAndValidateVersion(release.GetTagName())
+			if !valid {
+				// skip invalid version
+				continue
+			}
+
+			createdAt := release.GetCreatedAt().Time
+
+			releaseList = append(releaseList, AppreleaseVersion{
+				Tag:       release.GetTagName(),
+				Version:   version,
+				CreatedAt: &createdAt,
+			})
+		}
+	} else {
+		err = respError
+	}
+
+	return
+}
+
+func (m *MetricsCollectorGithub) fetchGithubVersionFromTags(ctx context.Context, project ConfigProjectGithub) (releaseList []AppreleaseVersion, err error) {
+	var commit *github.RepositoryCommit
+	releaseList = []AppreleaseVersion{}
+	githubOwner, githubRepository := project.GetOwnerAndRepository()
+
+	listOpts := &github.ListOptions{
+		Page:    0,
+		PerPage: project.GetLimit(),
+	}
+	if respTags, _, respError := m.client.Repositories.ListTags(ctx, githubOwner, githubRepository, listOpts); respError == nil {
+		for _, tag := range respTags {
+			version, valid := project.ProcessAndValidateVersion(tag.GetName())
+			if !valid {
+				// skip invalid version
+				continue
+			}
+
+			commit, _, err = m.client.Repositories.GetCommit(ctx, githubOwner, githubRepository, tag.GetCommit().GetSHA())
+			if err != nil {
+				return
+			}
+
+			if commit != nil {
+				createdAt := commit.GetCommit().GetAuthor().GetDate()
+				releaseList = append(releaseList, AppreleaseVersion{
+					Tag:       tag.GetName(),
+					Version:   version,
+					CreatedAt: &createdAt,
+				})
+			}
+		}
+	} else {
+		err = respError
+	}
+
+	return
 }

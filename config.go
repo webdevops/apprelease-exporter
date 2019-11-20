@@ -38,6 +38,14 @@ type (
 		whitelistRegexp *regexp.Regexp
 		Blacklist       string
 		blacklistRegexp *regexp.Regexp
+
+		Replacement []ConfigProjectCommonReplacement `yaml:"replacement"`
+	}
+
+	ConfigProjectCommonReplacement struct {
+		Match       string
+		matchRegexp *regexp.Regexp
+		Replace     string
 	}
 
 	ConfigProjectDocker struct {
@@ -45,6 +53,7 @@ type (
 
 		Image    string
 		Registry ConfigProjectDockerRegistry `yaml:"registry"`
+		Limit    *int                        `yaml:"limit"`
 	}
 
 	ConfigProjectDockerRegistry struct {
@@ -56,12 +65,20 @@ type (
 	ConfigProjectGithub struct {
 		ConfigProjectCommon `yaml:",inline"`
 
-		Project string `yaml:"project"`
+		Project   string  `yaml:"project"`
+		FetchType *string `yaml:"fetchType"`
+		Limit     *int    `yaml:"limit"`
 	}
 )
 
-func (p *ConfigProjectCommon) IsReleaseValid(val string) (ret bool) {
-	ret = true
+func (p *ConfigProjectCommon) ProcessAndValidateVersion(val string) (version string, valid bool) {
+	version = val
+	valid = true
+
+	// replacements
+	for _, replacement := range p.Filter.Replacement {
+		version = replacement.Apply(version)
+	}
 
 	// whitelist
 	if p.Filter.Whitelist != "" {
@@ -70,7 +87,7 @@ func (p *ConfigProjectCommon) IsReleaseValid(val string) (ret bool) {
 			p.Filter.whitelistRegexp = regexp.MustCompile(strings.TrimSpace(p.Filter.Whitelist))
 		}
 
-		ret = p.Filter.whitelistRegexp.MatchString(val)
+		valid = p.Filter.whitelistRegexp.MatchString(version)
 	}
 
 	// blacklist
@@ -80,9 +97,25 @@ func (p *ConfigProjectCommon) IsReleaseValid(val string) (ret bool) {
 			p.Filter.blacklistRegexp = regexp.MustCompile(strings.TrimSpace(p.Filter.Blacklist))
 		}
 
-		if p.Filter.blacklistRegexp.MatchString(val) {
-			ret = false
+		if p.Filter.blacklistRegexp.MatchString(version) {
+			valid = false
 		}
+	}
+
+	return
+}
+
+func (r *ConfigProjectCommonReplacement) Apply(val string) string {
+	if r.matchRegexp == nil {
+		r.matchRegexp = regexp.MustCompile(r.Match)
+	}
+	val = r.matchRegexp.ReplaceAllString(val, r.Replace)
+	return val
+}
+
+func (p *ConfigProjectCommon) CveReportClient() (client *CveClient) {
+	if !opts.DisableCve && p.Cve.Vendor != "" && p.Cve.Product != "" {
+		client = NewCveClient(p.Cve)
 	}
 
 	return
@@ -121,6 +154,36 @@ func (p *ConfigProjectGithub) GetOwnerAndRepository() (owner, repository string)
 	repository = parts[1]
 
 	return
+}
+
+func (p *ConfigProjectGithub) GetFetchType() string {
+	fetchtype := "releases"
+
+	if p.FetchType != nil {
+		switch *p.FetchType {
+		case "tag":
+		case "tags":
+			fetchtype = "tags"
+		}
+	}
+
+	return fetchtype
+}
+
+func (p *ConfigProjectDocker) GetLimit() int {
+	if p.Limit != nil {
+		return *p.Limit
+	} else {
+		return opts.DockerLimit
+	}
+}
+
+func (p *ConfigProjectGithub) GetLimit() int {
+	if p.Limit != nil {
+		return *p.Limit
+	} else {
+		return opts.GithubLimit
+	}
 }
 
 func NewAppConfig(path string) (config Config) {
