@@ -130,10 +130,16 @@ func (c *CveResponse) parseReportLine(report CveResponseReportResult, reportLine
 	for _, line := range reportLines {
 		parsedLine := strings.Split(line, ":")
 
-		if len(parsedLine) >= 5 {
+		if len(parsedLine) >= 6 {
 			lineVendor := strings.ToLower(parsedLine[3])
 			lineProduct := strings.ToLower(parsedLine[4])
 			lineVersion := strings.ToLower(parsedLine[5])
+			lineVersionType := strings.ToLower(parsedLine[6])
+
+			if  lineVersionType != "" && lineVersionType != "*" && lineVersionType != "-" {
+				// beta, rc version or whatever
+				continue
+			}
 
 			if lineVendor == vendor && lineProduct == product {
 				shortReport := CveResponseReportResultShort{
