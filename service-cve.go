@@ -29,6 +29,8 @@ type (
 	CveResponseReportResultShort struct {
 		Id     string
 		Cvss   float64
+		CvssVector string
+		Cwe        string
 		Access CveResponseReportResultAccess
 		Impact CveResponseReportResultImpact
 	}
@@ -143,10 +145,12 @@ func (c *CveResponse) parseReportLine(report CveResponseReportResult, reportLine
 
 			if lineVendor == vendor && lineProduct == product {
 				shortReport := CveResponseReportResultShort{
-					Id:     report.Id,
-					Cvss:   report.Cvss,
-					Access: report.Access,
-					Impact: report.Impact,
+					Id:         report.Id,
+					Cvss:       report.Cvss,
+					Cwe:        report.Cwe,
+					CvssVector: report.CvssVector,
+					Access:     report.Access,
+					Impact:     report.Impact,
 				}
 
 				if _, ok := c.vulneratbilityVersions[lineVersion]; !ok {
