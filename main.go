@@ -50,8 +50,8 @@ var opts struct {
 	DockerLimit int `long:"docker.limit"  env:"DOCKER_LIMIT" description:"Number of tags fetched from Docker" default:"25"`
 
 	// cache
-	CachePath string `long:"cache.path"  env:"CACHE_PATH"   description:"Cache path"`
-	CacheTtl time.Duration `long:"cache.ttl"  env:"CACHE_TTL"   description:"Cache expiry" default:"24h"`
+	CachePath string        `long:"cache.path"  env:"CACHE_PATH"   description:"Cache path"`
+	CacheTtl  time.Duration `long:"cache.ttl"  env:"CACHE_TTL"   description:"Cache expiry" default:"24h"`
 }
 
 func main() {
