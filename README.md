@@ -24,6 +24,8 @@ Normally no configuration is needed but can be customized using environment vari
 | `GITHUB_SCRAPEWAIT`               | `2s`                        | Wait time between release scrapings to releax api stress          |
 | `GITHUB_LIMIT`                    | `25`                        | Number of releases to fetch (only first page is scraped)          |
 | `DOCKER_LIMIT`                    | `25`                        | Number of releases to fetch (only first page is scraped)          |
+| `CACHE_PATH`                      | `empty`                     | Path where CVE json files should be stored                        |
+| `CACHE_TTL`                       | `24h`                       | TTL (time.Duration) when cached CVE reports should be fetched again |
 
 Configuration file
 ------------------

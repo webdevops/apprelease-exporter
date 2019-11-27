@@ -4,8 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	resty "github.com/go-resty/resty/v2"
+	"io/ioutil"
 	"net/url"
+	"os"
+	"path"
 	"strings"
+	"time"
 )
 
 type (
@@ -27,31 +31,31 @@ type (
 	}
 
 	CveResponseReportResultShort struct {
-		Id     string
-		Cvss   float64
-		CvssVector string
-		Cwe        string
-		Access CveResponseReportResultAccess
-		Impact CveResponseReportResultImpact
+		Id         string                        `json:"id"`
+		Cvss       float64                       `json:"cvss"`
+		CvssVector string                        `json:"cvss-vector"`
+		Cwe        string                        `json:"cwe"`
+		Access     CveResponseReportResultAccess `json:"access"`
+		Impact     CveResponseReportResultImpact `json:"impact"`
 	}
 
 	CveResponseReportResult struct {
-		Id string
+		Id string `json:"id"`
 
-		Modified  string
-		Published string
+		Modified  string `json:"modified"`
+		Published string `json:"published"`
 
-		Assigner   string
-		Cvss       float64
-		CvssTime   string `json:"cvss-time"`
-		CvssVector string `json:"cvss-vector"`
-		Cwe        string
+		Assigner   string  `json:"assigner"`
+		Cvss       float64 `json:"cvss"`
+		CvssTime   string  `json:"cvss-time"`
+		CvssVector string  `json:"cvss-vector"`
+		Cwe        string  `json:"cwe"`
 
-		Access CveResponseReportResultAccess
-		Impact CveResponseReportResultImpact
+		Access CveResponseReportResultAccess `json:"access"`
+		Impact CveResponseReportResultImpact `json:"impact"`
 
-		References []string
-		Summary    string
+		References []string `json:"references"`
+		Summary    string   `json:"summary"`
 
 		VulnerableConfiguration       []string `json:"vulnerable_configuration"`
 		VulnerableConfigurationCpe2_2 []string `json:"vulnerable_configuration_cpe_2_2"`
@@ -59,15 +63,15 @@ type (
 	}
 
 	CveResponseReportResultAccess struct {
-		Authentication string
-		Complexity     string
-		Vector         string
+		Authentication string `json:"authentication"`
+		Complexity     string `json:"complexity"`
+		Vector         string `json:"vector"`
 	}
 
 	CveResponseReportResultImpact struct {
-		Availability    string
-		Confidentiality string
-		Integrity       string
+		Availability    string `json:"Availability"`
+		Confidentiality string `json:"confidentiality"`
+		Integrity       string `json:"integrity"`
 	}
 )
 
@@ -85,6 +89,32 @@ func NewCveClient(conf ConfigProjectCommonCve) *CveClient {
 }
 
 func (c *CveClient) FetchReport() (*CveResponse, error) {
+	// fetch from cache (if active, use ttl)
+	if r, useFromCache := c.loadFromCache(false); useFromCache {
+		return r, nil
+	}
+
+	// fetch from api
+	if r, err := c.fetchFromApi(); err == nil {
+		c.saveToCache(r)
+		return r, nil
+	} else {
+		Logger.Errorf("unable to fetch cve %v/%v: %v", c.conf.Vendor, c.conf.Product, err)
+
+	}
+
+	// fallback (if active, ignore ttl)
+	if r, useFromCache := c.loadFromCache(true); useFromCache {
+		return r, nil
+	}
+
+	// no cve report available
+	return nil, nil
+}
+
+func (c *CveClient) fetchFromApi() (*CveResponse, error) {
+	Logger.Verbosef("fetch cve %v/%v from online api", c.conf.Vendor, c.conf.Product)
+
 	u := fmt.Sprintf(
 		"/api/search/%v/%v",
 		url.PathEscape(c.conf.Vendor),
@@ -95,21 +125,24 @@ func (c *CveClient) FetchReport() (*CveResponse, error) {
 		return nil, err
 	}
 
+	data := resp.Body()
+
 	r := &CveResponse{
 		conf: c.conf,
 	}
-	if err := r.parseResponse(resp); err != nil {
+
+	if err := r.parseResponse(data); err != nil {
 		return nil, err
 	}
 
 	return r, nil
 }
 
-func (c *CveResponse) parseResponse(resp *resty.Response) error {
+func (c *CveResponse) parseResponse(data []byte) error {
 	c.report = &CveResponseReport{}
 	c.vulneratbilityVersions = map[string]map[string]CveResponseReportResultShort{}
 
-	if err := json.Unmarshal(resp.Body(), &c.report); err != nil {
+	if err := json.Unmarshal(data, &c.report); err != nil {
 		return err
 	}
 
@@ -119,10 +152,64 @@ func (c *CveResponse) parseResponse(resp *resty.Response) error {
 		c.parseReportLine(report, report.VulnerableConfigurationCpe2_2)
 	}
 
-	// cleanup
-	c.report = nil
-
 	return nil
+}
+
+func (c *CveClient) buildCacheFilePath() (filepath string) {
+	vendor := strings.ToLower(c.conf.Vendor)
+	product := strings.ToLower(c.conf.Product)
+
+	filepath = path.Join(opts.CachePath, fmt.Sprintf("cve-%v_%v.json", vendor, product))
+
+	return
+}
+
+func (c *CveClient) loadFromCache(force bool) (*CveResponse, bool) {
+	if opts.CachePath != "" {
+		cvePath := c.buildCacheFilePath()
+
+		if stat, err := os.Stat(cvePath); err == nil {
+			if force || time.Now().Before(stat.ModTime().Add(opts.CacheTtl)) {
+				Logger.Verbosef("read cve from cached file %v", cvePath)
+
+				content, err := ioutil.ReadFile(cvePath)
+				if err != nil {
+					Logger.Errorf("unable to read cve cache file %v", cvePath)
+					return nil, false
+				}
+
+				r := &CveResponse{
+					conf: c.conf,
+				}
+
+				if err := r.parseResponse(content); err != nil {
+					return nil, false
+				}
+
+				return r, true
+			} else {
+				Logger.Verbosef("found expired cve cache file %v", cvePath)
+			}
+		}
+	}
+
+	return nil, false
+}
+
+func (c *CveClient) saveToCache(r *CveResponse) {
+	if opts.CachePath != "" {
+		cvePath := c.buildCacheFilePath()
+
+		Logger.Verbosef("write cve to cache file %v", cvePath)
+
+		if data, err := json.Marshal(&r.report); err == nil {
+			if err := ioutil.WriteFile(cvePath, data, 0644); err != nil {
+				Logger.Errorf("unable to write cve cache file %v", cvePath)
+			}
+		} else {
+			Logger.Errorf("unable to marshal cve report to json")
+		}
+	}
 }
 
 func (c *CveResponse) parseReportLine(report CveResponseReportResult, reportLines []string) {
@@ -138,7 +225,7 @@ func (c *CveResponse) parseReportLine(report CveResponseReportResult, reportLine
 			lineVersion := strings.ToLower(parsedLine[5])
 			lineVersionType := strings.ToLower(parsedLine[6])
 
-			if  lineVersionType != "" && lineVersionType != "*" && lineVersionType != "-" {
+			if lineVersionType != "" && lineVersionType != "*" && lineVersionType != "-" {
 				// beta, rc version or whatever
 				continue
 			}

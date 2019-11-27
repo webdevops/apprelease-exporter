@@ -48,6 +48,10 @@ var opts struct {
 
 	//docker
 	DockerLimit int `long:"docker.limit"  env:"DOCKER_LIMIT" description:"Number of tags fetched from Docker" default:"25"`
+
+	// cache
+	CachePath string `long:"cache.path"  env:"CACHE_PATH"   description:"Cache path"`
+	CacheTtl time.Duration `long:"cache.ttl"  env:"CACHE_TTL"   description:"Cache expiry" default:"24h"`
 }
 
 func main() {
@@ -67,6 +71,11 @@ func main() {
 
 	Logger.Infof("Starting metrics collection")
 	Logger.Infof("  scape time: %v", opts.ScrapeTime)
+
+	if opts.CachePath != "" {
+		Logger.Infof("  cache path: %v", opts.CachePath)
+		Logger.Infof("   cache ttl: %v", opts.CacheTtl.String())
+	}
 
 	if opts.DisableCve {
 		Logger.Infof("  cve report: disabled")
