@@ -17,7 +17,6 @@ const (
 
 var (
 	argparser *flags.Parser
-	args      []string
 	Verbose   bool
 	Logger    *DaemonLogger
 

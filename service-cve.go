@@ -20,7 +20,6 @@ type (
 	}
 
 	CveResponse struct {
-		response               *resty.Response
 		conf                   ConfigProjectCommonCve
 		report                 *CveResponseReport
 		vulneratbilityVersions map[string]map[string]CveResponseReportResultShort

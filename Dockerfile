@@ -9,14 +9,14 @@ RUN go mod download
 
 # Compile
 COPY ./ /go/src/github.com/webdevops/apprelease-exporter
-RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-extldflags "-static"' -o /apprelease-exporter \
-    && chmod +x /apprelease-exporter
-RUN /apprelease-exporter --help
+RUN make lint
+RUN make build
+RUN ./apprelease-exporter --help
 
 #############################################
 # FINAL IMAGE
 #############################################
 FROM gcr.io/distroless/static
-COPY --from=build /apprelease-exporter /
+COPY --from=build /go/src/github.com/webdevops/apprelease-exporter/apprelease-exporter /
 USER 1000
 ENTRYPOINT ["/apprelease-exporter"]
