@@ -99,7 +99,6 @@ func (c *CveClient) FetchReport() (*CveResponse, error) {
 		return r, nil
 	} else {
 		Logger.Errorf("unable to fetch cve %v/%v: %v", c.conf.Vendor, c.conf.Product, err)
-
 	}
 
 	// fallback (if active, ignore ttl)
@@ -121,6 +120,11 @@ func (c *CveClient) fetchFromApi() (*CveResponse, error) {
 	)
 	resp, err := c.restClient.R().Get(u)
 	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode() != 200 {
+		err = fmt.Errorf("fetch cve %v/%v from online api, got HTTP status %v: %v", c.conf.Vendor, c.conf.Product, resp.StatusCode(), resp.Request.URL)
 		return nil, err
 	}
 
