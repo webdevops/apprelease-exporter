@@ -4,9 +4,9 @@ import (
 	"context"
 	"github.com/google/go-github/v28/github"
 	"github.com/prometheus/client_golang/prometheus"
+	prometheusCommon "github.com/webdevops/go-prometheus-common"
 	"golang.org/x/oauth2"
 	"time"
-	prometheusCommon "github.com/webdevops/go-prometheus-common"
 )
 
 type (

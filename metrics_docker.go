@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"github.com/heroku/docker-registry-client/registry"
 	"github.com/prometheus/client_golang/prometheus"
+	prometheusCommon "github.com/webdevops/go-prometheus-common"
 	"math"
 	"sort"
 	"sync"
 	"time"
-	prometheusCommon "github.com/webdevops/go-prometheus-common"
 )
 
 type (

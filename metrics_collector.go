@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"github.com/prometheus/client_golang/prometheus"
-	"time"
 	prometheusCommon "github.com/webdevops/go-prometheus-common"
+	"time"
 )
 
 type (

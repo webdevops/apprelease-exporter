@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	Author  = "webdevops.io"
+	Author = "webdevops.io"
 )
 
 var (
