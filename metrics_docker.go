@@ -11,6 +11,7 @@ import (
 	"sort"
 	"sync"
 	"time"
+	prometheusCommon "github.com/webdevops/go-prometheus-common"
 )
 
 type (
@@ -113,8 +114,8 @@ func (m *MetricsCollectorDocker) collectProject(ctx context.Context, callback ch
 	var err error
 	var cveReport *CveResponse
 
-	releaseMetrics := MetricCollectorList{}
-	releaseCveMetrics := MetricCollectorList{}
+	releaseMetrics := prometheusCommon.NewMetricsList()
+	releaseCveMetrics := prometheusCommon.NewMetricsList()
 
 	registryUrl, _, _ := project.GetRegistry()
 	client := m.client[registryUrl]

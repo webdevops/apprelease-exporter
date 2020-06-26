@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/prometheus/client_golang/prometheus"
 	"time"
+	prometheusCommon "github.com/webdevops/go-prometheus-common"
 )
 
 type (
@@ -30,7 +31,7 @@ func (m *MetricsCollectorCollector) Collect(ctx context.Context, callback chan<-
 }
 
 func (m *MetricsCollectorCollector) collectCollectorStats(ctx context.Context, callback chan<- func()) {
-	statsMetrics := MetricCollectorList{}
+	statsMetrics := prometheusCommon.NewMetricsList()
 
 	for _, collector := range collectorList {
 		if collector.LastScrapeDuration != nil {

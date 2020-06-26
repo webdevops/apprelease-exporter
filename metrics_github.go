@@ -6,6 +6,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/oauth2"
 	"time"
+	prometheusCommon "github.com/webdevops/go-prometheus-common"
 )
 
 type (
@@ -106,8 +107,8 @@ func (m *MetricsCollectorGithub) collectProject(ctx context.Context, callback ch
 	var releaseList []AppreleaseVersion
 	var cveReport *CveResponse
 
-	releaseMetrics := MetricCollectorList{}
-	releaseCveMetrics := MetricCollectorList{}
+	releaseMetrics := prometheusCommon.NewMetricsList()
+	releaseCveMetrics := prometheusCommon.NewMetricsList()
 
 	Logger.Infof("project[%v]: starting collection", project.Name)
 
