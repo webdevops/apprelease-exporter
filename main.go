@@ -12,7 +12,6 @@ import (
 
 const (
 	Author  = "webdevops.io"
-	Version = "20.4.0"
 )
 
 var (
@@ -22,6 +21,10 @@ var (
 
 	collectorList map[string]*CollectorGeneral
 	AppConfig     Config
+
+	// Git version information
+	gitCommit = "<unknown>"
+	gitTag    = "<unknown>"
 )
 
 var opts struct {
@@ -65,7 +68,7 @@ func main() {
 	// set verbosity
 	Verbose = len(opts.Verbose) >= 1
 
-	Logger.Infof("Init AppRelease exporter v%s (written by %v)", Version, Author)
+	Logger.Infof("Init AppRelease exporter v%s (%v; written by %v)", gitTag, gitCommit, Author)
 	readConfig()
 
 	Logger.Infof("Starting metrics collection")
