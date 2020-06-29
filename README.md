@@ -7,25 +7,31 @@ AppRelease and CVE Exporter
 
 Prometheus exporter for Application releases supports Docker and GitHub and is able to fetch CVE reports via [https://cve.circl.lu/](https://cve.circl.lu/).
 
-Configuration
--------------
+Usage
+-----
 
-Normally no configuration is needed but can be customized using environment variables.
+```
+Usage:
+  apprelease-exporter [OPTIONS]
 
-| Environment variable              | DefaultValue                | Description                                                       |
-|-----------------------------------|-----------------------------|-------------------------------------------------------------------|
-| `CONFIG`                          | `empty`                     | Path to configuration yaml, eg. see `example.yaml`                |
-| `SCRAPE_TIME`                     | `12h`                       | Default scrape time (time.Duration)                               |
-| `SCRAPE_TIME_DOCKER`              | -> SCRAPE_TIME              | Scrape time for Docker releases                                   |
-| `SCRAPE_TIME_GITHUB  `            | -> SCRAPE_TIME              | Scrape time for GitHub releases                                   |
-| `SERVER_BIND`                     | `:8080`                     | IP/Port binding                                                   |
-| `DISABLE_CVE`                     | `empty`                     | Disable CVE report fetching (even if configured)                  |
-| `GITHUB_PERSONALACCESSTOKEN`      | `empty`                     | GitHub personal access token for avoiding rate limit              |
-| `GITHUB_SCRAPEWAIT`               | `2s`                        | Wait time between release scrapings to releax api stress          |
-| `GITHUB_LIMIT`                    | `25`                        | Number of releases to fetch (only first page is scraped)          |
-| `DOCKER_LIMIT`                    | `25`                        | Number of releases to fetch (only first page is scraped)          |
-| `CACHE_PATH`                      | `empty`                     | Path where CVE json files should be stored                        |
-| `CACHE_TTL`                       | `24h`                       | TTL (time.Duration) when cached CVE reports should be fetched again |
+Application Options:
+  -v, --verbose                     Verbose mode [$VERBOSE]
+  -c, --config=                     Config path [$CONFIG]
+      --bind=                       Server address (default: :8080) [$SERVER_BIND]
+      --scrape-time=                Default scrape time (time.duration) (default: 12h) [$SCRAPE_TIME]
+      --scrape-time.docker=         Scrape time for Docker (time.duration) [$SCRAPE_TIME_DOCKER]
+      --scrape-time.github=         Scrape time for Github (time.duration) [$SCRAPE_TIME_GITHUB]
+      --cve.url=                    URL to cve-search instance (see https://github.com/cve-search/cve-search) [$CVE_URL]
+      --github.personalaccesstoken= GitHub personal access token [$GITHUB_PERSONALACCESSTOKEN]
+      --github.scrape-wait=         Wait number between project waits (default: 2s) [$GITHUB_SCRAPEWAIT]
+      --github.limit=               Number of results fetched from GitHub (default: 25) [$GITHUB_LIMIT]
+      --docker.limit=               Number of tags fetched from Docker (default: 25) [$DOCKER_LIMIT]
+      --cache.path=                 Cache path [$CACHE_PATH]
+      --cache.ttl=                  Cache expiry (default: 24h) [$CACHE_TTL]
+
+Help Options:
+  -h, --help                        Show this help message
+```
 
 Configuration file
 ------------------

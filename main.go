@@ -41,7 +41,7 @@ var opts struct {
 	ScrapeTimeGithub *time.Duration `long:"scrape-time.github"  env:"SCRAPE_TIME_GITHUB"    description:"Scrape time for Github (time.duration)"`
 
 	// settings
-	DisableCve bool `long:"disable.cve"  env:"DISABLE_CVE"    description:"Disable CVE reports"`
+	CveUrl string `long:"cve.url"  env:"CVE_URL"    description:"URL to cve-search instance (see https://github.com/cve-search/cve-search)"`
 
 	// github
 	GithubPersonalAccessToken *string       `long:"github.personalaccesstoken"  env:"GITHUB_PERSONALACCESSTOKEN" description:"GitHub personal access token"`
@@ -79,10 +79,10 @@ func main() {
 		Logger.Infof("   cache ttl: %v", opts.CacheTtl.String())
 	}
 
-	if opts.DisableCve {
-		Logger.Infof("  cve report: disabled")
+	if opts.CveUrl != "" {
+		Logger.Infof("  cve endpoint: %s", opts.CveUrl)
 	} else {
-		Logger.Infof("  cve report: enabled")
+		Logger.Infof("  cve report: disabled")
 	}
 
 	initMetricCollector()

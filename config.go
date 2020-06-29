@@ -114,7 +114,7 @@ func (r *ConfigProjectCommonReplacement) Apply(val string) string {
 }
 
 func (p *ConfigProjectCommon) CveReportClient() (client *CveClient) {
-	if !opts.DisableCve && p.Cve.Vendor != "" && p.Cve.Product != "" {
+	if opts.CveUrl != "" && p.Cve.Vendor != "" && p.Cve.Product != "" {
 		client = NewCveClient(p.Cve)
 	}
 

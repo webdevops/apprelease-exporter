@@ -81,7 +81,7 @@ func NewCveClient(conf ConfigProjectCommonCve) *CveClient {
 
 	c.restClient = resty.New()
 	c.restClient.SetHeader("User-Agent", fmt.Sprintf("apprelease-exporter/%s", gitTag))
-	c.restClient.SetHostURL("https://cve.circl.lu/")
+	c.restClient.SetHostURL(opts.CveUrl)
 	c.restClient.SetHeader("Accept", "application/json")
 
 	return c
