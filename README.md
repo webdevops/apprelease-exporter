@@ -2,8 +2,8 @@ AppRelease and CVE Exporter
 ===========================
 
 [![license](https://img.shields.io/github/license/webdevops/apprelease-exporter.svg)](https://github.com/webdevops/apprelease-exporter/blob/master/LICENSE)
-[![Docker](https://img.shields.io/badge/docker-webdevops%2Fapprelease--exporter-blue.svg?longCache=true&style=flat&logo=docker)](https://hub.docker.com/r/webdevops/apprelease-exporter/)
-[![Docker Build Status](https://img.shields.io/docker/build/webdevops/apprelease-exporter.svg)](https://hub.docker.com/r/webdevops/apprelease-exporter/)
+[![DockerHub](https://img.shields.io/badge/DockerHub-webdevops%2Fapprelease--exporter-blue)](https://hub.docker.com/r/webdevops/apprelease-exporter/)
+[![Quay.io](https://img.shields.io/badge/Quay.io-webdevops%2Fapprelease--exporter-blue)](https://quay.io/repository/webdevops/apprelease-exporter)
 
 Prometheus exporter for Application releases supports Docker and GitHub and is able to fetch CVE reports via [https://cve.circl.lu/](https://cve.circl.lu/).
 
