@@ -1,6 +1,6 @@
 module github.com/webdevops/apprelease-exporter
 
-go 1.14
+go 1.15
 
 require (
 	facette.io/natsort v0.0.0-20181210072756-2cd4dd1e2dcb
