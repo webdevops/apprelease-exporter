@@ -10,7 +10,6 @@ require (
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/go-resty/resty/v2 v2.3.0
 	github.com/google/go-github/v28 v28.1.1
-	github.com/google/logger v1.1.0
 	github.com/google/uuid v1.1.2 // indirect
 	github.com/heroku/docker-registry-client v0.0.0-20190909225348-afc9e1acc3d5
 	github.com/huandu/xstrings v1.3.2 // indirect
