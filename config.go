@@ -125,7 +125,7 @@ func (p *ConfigProjectCommon) IsReleaseMarked(val string) (ret bool) {
 	ret = false
 
 	for _, mark := range p.Mark {
-		if strings.ToLower(mark) == strings.ToLower(val) {
+		if strings.EqualFold(mark, val) {
 			ret = true
 			break
 		}

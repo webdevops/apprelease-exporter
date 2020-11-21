@@ -127,12 +127,9 @@ func (m *MetricsCollectorGithub) collectProject(ctx context.Context, callback ch
 	case "tags":
 		Logger.Infof("project[%v]: fetching github versions from tags", project.Name)
 		releaseList, err = m.fetchGithubVersionFromTags(ctx, project)
-		break
-
 	default:
 		Logger.Infof("project[%v]: fetching github versions from releases", project.Name)
 		releaseList, err = m.fetchGithubVersionFromReleases(ctx, project)
-		break
 	}
 
 	if err == nil {
