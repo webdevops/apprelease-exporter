@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"github.com/Masterminds/sprig"
+	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"regexp"
@@ -114,7 +115,7 @@ func (r *ConfigProjectCommonReplacement) Apply(val string) string {
 }
 
 func (p *ConfigProjectCommon) CveReportClient() (client *CveClient) {
-	if opts.CveUrl != "" && p.Cve.Vendor != "" && p.Cve.Product != "" {
+	if opts.Cve.Url != "" && p.Cve.Vendor != "" && p.Cve.Product != "" {
 		client = NewCveClient(p.Cve)
 	}
 
@@ -174,7 +175,7 @@ func (p *ConfigProjectDocker) GetLimit() int {
 	if p.Limit != nil {
 		return *p.Limit
 	} else {
-		return opts.DockerLimit
+		return opts.Docker.Limit
 	}
 }
 
@@ -182,7 +183,7 @@ func (p *ConfigProjectGithub) GetLimit() int {
 	if p.Limit != nil {
 		return *p.Limit
 	} else {
-		return opts.GithubLimit
+		return opts.GitHub.Limit
 	}
 }
 
@@ -191,14 +192,14 @@ func NewAppConfig(path string) (config Config) {
 
 	config = Config{}
 
-	Logger.Infof("reading configuration from file %v", path)
+	log.Infof("reading configuration from file %v", path)
 	if data, err := ioutil.ReadFile(path); err == nil {
 		configRaw = data
 	} else {
 		panic(err)
 	}
 
-	Logger.Info(" -  preprocessing with template engine")
+	log.Info("preprocessing with template engine")
 	var tmplBytes bytes.Buffer
 	parsedConfig, err := template.New("yaml").Funcs(sprig.TxtFuncMap()).Parse(string(configRaw))
 	if err != nil {
@@ -209,7 +210,7 @@ func NewAppConfig(path string) (config Config) {
 		panic(err)
 	}
 
-	Logger.Info("parsing configuration")
+	log.Info("parsing configuration")
 	if err := yaml.Unmarshal(tmplBytes.Bytes(), &config); err != nil {
 		panic(err)
 	}

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"github.com/prometheus/client_golang/prometheus"
+	log "github.com/sirupsen/logrus"
 	prometheusCommon "github.com/webdevops/go-prometheus-common"
 	"time"
 )
@@ -26,11 +27,11 @@ func (m *MetricsCollectorCollector) Setup(collector *CollectorGeneral) {
 func (m *MetricsCollectorCollector) Reset() {
 }
 
-func (m *MetricsCollectorCollector) Collect(ctx context.Context, callback chan<- func()) {
-	m.collectCollectorStats(ctx, callback)
+func (m *MetricsCollectorCollector) Collect(ctx context.Context, logger *log.Entry, callback chan<- func()) {
+	m.collectCollectorStats(ctx, logger, callback)
 }
 
-func (m *MetricsCollectorCollector) collectCollectorStats(ctx context.Context, callback chan<- func()) {
+func (m *MetricsCollectorCollector) collectCollectorStats(ctx context.Context, logger *log.Entry, callback chan<- func()) {
 	statsMetrics := prometheusCommon.NewMetricsList()
 
 	for _, collector := range collectorList {

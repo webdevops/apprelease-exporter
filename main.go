@@ -4,9 +4,13 @@ import (
 	"fmt"
 	"github.com/jessevdk/go-flags"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"log"
+	log "github.com/sirupsen/logrus"
+	"github.com/webdevops/apprelease-exporter/config"
 	"net/http"
 	"os"
+	"path"
+	"runtime"
+	"strings"
 	"time"
 )
 
@@ -16,8 +20,7 @@ const (
 
 var (
 	argparser *flags.Parser
-	Verbose   bool
-	Logger    *DaemonLogger
+	opts      config.Opts
 
 	collectorList map[string]*CollectorGeneral
 	AppConfig     Config
@@ -27,67 +30,28 @@ var (
 	gitTag    = "<unknown>"
 )
 
-var opts struct {
-	// general settings
-	Verbose    []bool `long:"verbose" short:"v"  env:"VERBOSE"  description:"Verbose mode"`
-	ConfigPath string `long:"config" short:"c"  env:"CONFIG"   description:"Config path" required:"true"`
-
-	// server settings
-	ServerBind string `long:"bind"  env:"SERVER_BIND"  description:"Server address"  default:":8080"`
-
-	// scrape times
-	ScrapeTime       time.Duration  `long:"scrape-time"         env:"SCRAPE_TIME"           description:"Default scrape time (time.duration)"       default:"12h"`
-	ScrapeTimeDocker *time.Duration `long:"scrape-time.docker"  env:"SCRAPE_TIME_DOCKER"    description:"Scrape time for Docker (time.duration)"`
-	ScrapeTimeGithub *time.Duration `long:"scrape-time.github"  env:"SCRAPE_TIME_GITHUB"    description:"Scrape time for Github (time.duration)"`
-
-	// settings
-	CveUrl string `long:"cve.url"  env:"CVE_URL"    description:"URL to cve-search instance (see https://github.com/cve-search/cve-search)"`
-
-	// github
-	GithubPersonalAccessToken *string       `long:"github.personalaccesstoken"  env:"GITHUB_PERSONALACCESSTOKEN" description:"GitHub personal access token"`
-	GithubScrapeWait          time.Duration `long:"github.scrape-wait"  env:"GITHUB_SCRAPEWAIT" description:"Wait number between project waits" default:"2s"`
-	GithubLimit               int           `long:"github.limit"  env:"GITHUB_LIMIT" description:"Number of results fetched from GitHub" default:"25"`
-
-	//docker
-	DockerLimit int `long:"docker.limit"  env:"DOCKER_LIMIT" description:"Number of tags fetched from Docker" default:"25"`
-
-	// cache
-	CachePath string        `long:"cache.path"  env:"CACHE_PATH"  description:"Cache path"`
-	CacheTtl  time.Duration `long:"cache.ttl"   env:"CACHE_TTL"   description:"Cache expiry" default:"24h"`
-}
-
 func main() {
 	initArgparser()
 
-	// set verbosity
-	Verbose = len(opts.Verbose) >= 1
+	log.Infof("starting apprelease-exporter v%s (%s; %s; by %v)", gitTag, gitCommit, runtime.Version(), Author)
+	log.Info(string(opts.GetJson()))
 
-	Logger = NewLogger(log.Lshortfile, Verbose)
-	defer Logger.Close()
-
-	// set verbosity
-	Verbose = len(opts.Verbose) >= 1
-
-	Logger.Infof("Init AppRelease exporter v%s (%v; written by %v)", gitTag, gitCommit, Author)
+	log.Infof("loading config")
 	readConfig()
 
-	Logger.Infof("Starting metrics collection")
-	Logger.Infof("  scape time: %v", opts.ScrapeTime)
+	log.Infof("starting metrics collection")
 
-	if opts.CachePath != "" {
-		Logger.Infof("  cache path: %v", opts.CachePath)
-		Logger.Infof("   cache ttl: %v", opts.CacheTtl.String())
+	if opts.Cache.Path != "" {
+		log.Infof("enable cache (path: %v, ttl: %v)", opts.Cache.Path, opts.Cache.Ttl.String())
 	}
 
-	if opts.CveUrl != "" {
-		Logger.Infof("  cve endpoint: %s", opts.CveUrl)
-	} else {
-		Logger.Infof("  cve report: disabled")
+	if opts.Cve.Url != "" {
+		log.Infof("enable CVE fetching")
 	}
 
 	initMetricCollector()
 
-	Logger.Infof("Starting http server on %s", opts.ServerBind)
+	log.Infof("starting http server on %s", opts.ServerBind)
 	startHttpServer()
 }
 
@@ -108,17 +72,48 @@ func initArgparser() {
 		}
 	}
 
-	if opts.ScrapeTimeDocker == nil {
-		opts.ScrapeTimeDocker = &opts.ScrapeTime
+	// verbose level
+	if opts.Logger.Verbose {
+		log.SetLevel(log.DebugLevel)
 	}
 
-	if opts.ScrapeTimeGithub == nil {
-		opts.ScrapeTimeGithub = &opts.ScrapeTime
+	// debug level
+	if opts.Logger.Debug {
+		log.SetReportCaller(true)
+		log.SetLevel(log.TraceLevel)
+		log.SetFormatter(&log.TextFormatter{
+			CallerPrettyfier: func(f *runtime.Frame) (string, string) {
+				s := strings.Split(f.Function, ".")
+				funcName := s[len(s)-1]
+				return funcName, fmt.Sprintf("%s:%d", path.Base(f.File), f.Line)
+			},
+		})
+	}
+
+	// json log format
+	if opts.Logger.LogJson {
+		log.SetReportCaller(true)
+		log.SetFormatter(&log.JSONFormatter{
+			DisableTimestamp: true,
+			CallerPrettyfier: func(f *runtime.Frame) (string, string) {
+				s := strings.Split(f.Function, ".")
+				funcName := s[len(s)-1]
+				return funcName, fmt.Sprintf("%s:%d", path.Base(f.File), f.Line)
+			},
+		})
+	}
+
+	if opts.Scrape.TimeDocker == nil {
+		opts.Scrape.TimeDocker = &opts.Scrape.Time
+	}
+
+	if opts.Scrape.TimeGithub == nil {
+		opts.Scrape.TimeGithub = &opts.Scrape.Time
 	}
 }
 
 func readConfig() {
-	AppConfig = NewAppConfig(opts.ConfigPath)
+	AppConfig = NewAppConfig(opts.Config.Path)
 }
 
 func initMetricCollector() {
@@ -126,19 +121,15 @@ func initMetricCollector() {
 	collectorList = map[string]*CollectorGeneral{}
 
 	collectorName = "docker"
-	if opts.ScrapeTimeDocker.Seconds() > 0 {
+	if opts.Scrape.TimeDocker.Seconds() > 0 {
 		collectorList[collectorName] = NewCollectorGeneral(collectorName, &MetricsCollectorDocker{})
-		collectorList[collectorName].Setup(*opts.ScrapeTimeDocker)
-	} else {
-		Logger.Infof("collector[%s]: disabled", collectorName)
+		collectorList[collectorName].Setup(*opts.Scrape.TimeDocker)
 	}
 
 	collectorName = "github"
-	if opts.ScrapeTimeGithub.Seconds() > 0 {
+	if opts.Scrape.TimeGithub.Seconds() > 0 {
 		collectorList[collectorName] = NewCollectorGeneral(collectorName, &MetricsCollectorGithub{})
-		collectorList[collectorName].Setup(*opts.ScrapeTimeGithub)
-	} else {
-		Logger.Infof("collector[%s]: disabled", collectorName)
+		collectorList[collectorName].Setup(*opts.Scrape.TimeGithub)
 	}
 
 	for _, collector := range collectorList {
@@ -154,5 +145,5 @@ func initMetricCollector() {
 // start and handle prometheus handler
 func startHttpServer() {
 	http.Handle("/metrics", promhttp.Handler())
-	Logger.Fatal(http.ListenAndServe(opts.ServerBind, nil))
+	log.Fatal(http.ListenAndServe(opts.ServerBind, nil))
 }

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	resty "github.com/go-resty/resty/v2"
+	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -81,7 +82,7 @@ func NewCveClient(conf ConfigProjectCommonCve) *CveClient {
 
 	c.restClient = resty.New()
 	c.restClient.SetHeader("User-Agent", fmt.Sprintf("apprelease-exporter/%s", gitTag))
-	c.restClient.SetHostURL(opts.CveUrl)
+	c.restClient.SetHostURL(opts.Cve.Url)
 	c.restClient.SetHeader("Accept", "application/json")
 
 	return c
@@ -98,7 +99,7 @@ func (c *CveClient) FetchReport() (*CveResponse, error) {
 		c.saveToCache(r)
 		return r, nil
 	} else {
-		Logger.Errorf("unable to fetch cve %v/%v: %v", c.conf.Vendor, c.conf.Product, err)
+		log.Errorf("unable to fetch cve %v/%v: %v", c.conf.Vendor, c.conf.Product, err)
 	}
 
 	// fallback (if active, ignore ttl)
@@ -111,7 +112,7 @@ func (c *CveClient) FetchReport() (*CveResponse, error) {
 }
 
 func (c *CveClient) fetchFromApi() (*CveResponse, error) {
-	Logger.Verbosef("fetch cve %v/%v from online api", c.conf.Vendor, c.conf.Product)
+	log.Debugf("fetch cve %v/%v from online api", c.conf.Vendor, c.conf.Product)
 
 	u := fmt.Sprintf(
 		"/api/search/%v/%v",
@@ -162,22 +163,22 @@ func (c *CveClient) buildCacheFilePath() (filepath string) {
 	vendor := strings.ToLower(c.conf.Vendor)
 	product := strings.ToLower(c.conf.Product)
 
-	filepath = path.Join(opts.CachePath, fmt.Sprintf("cve-%v_%v.json", vendor, product))
+	filepath = path.Join(opts.Cache.Path, fmt.Sprintf("cve-%v_%v.json", vendor, product))
 
 	return
 }
 
 func (c *CveClient) loadFromCache(force bool) (*CveResponse, bool) {
-	if opts.CachePath != "" {
+	if opts.Cache.Path != "" {
 		cvePath := c.buildCacheFilePath()
 
 		if stat, err := os.Stat(cvePath); err == nil {
-			if force || time.Now().Before(stat.ModTime().Add(opts.CacheTtl)) {
-				Logger.Verbosef("read cve from cached file %v", cvePath)
+			if force || time.Now().Before(stat.ModTime().Add(opts.Cache.Ttl)) {
+				log.Debugf("read cve from cached file %v", cvePath)
 
 				content, err := ioutil.ReadFile(cvePath)
 				if err != nil {
-					Logger.Errorf("unable to read cve cache file %v", cvePath)
+					log.Errorf("unable to read cve cache file %v", cvePath)
 					return nil, false
 				}
 
@@ -191,7 +192,7 @@ func (c *CveClient) loadFromCache(force bool) (*CveResponse, bool) {
 
 				return r, true
 			} else {
-				Logger.Verbosef("found expired cve cache file %v", cvePath)
+				log.Debugf("found expired cve cache file %v", cvePath)
 			}
 		}
 	}
@@ -200,17 +201,17 @@ func (c *CveClient) loadFromCache(force bool) (*CveResponse, bool) {
 }
 
 func (c *CveClient) saveToCache(r *CveResponse) {
-	if opts.CachePath != "" {
+	if opts.Cache.Path != "" {
 		cvePath := c.buildCacheFilePath()
 
-		Logger.Verbosef("write cve to cache file %v", cvePath)
+		log.Debugf("write cve to cache file %v", cvePath)
 
 		if data, err := json.Marshal(&r.report); err == nil {
 			if err := ioutil.WriteFile(cvePath, data, 0644); err != nil {
-				Logger.Errorf("unable to write cve cache file %v", cvePath)
+				log.Errorf("unable to write cve cache file %v", cvePath)
 			}
 		} else {
-			Logger.Errorf("unable to marshal cve report to json")
+			log.Errorf("unable to marshal cve report to json")
 		}
 	}
 }

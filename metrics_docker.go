@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"facette.io/natsort"
-	"fmt"
 	"github.com/heroku/docker-registry-client/registry"
 	"github.com/prometheus/client_golang/prometheus"
+	log "github.com/sirupsen/logrus"
 	prometheusCommon "github.com/webdevops/go-prometheus-common"
 	"math"
 	"sort"
@@ -45,9 +45,7 @@ func (m *MetricsCollectorDocker) Setup(collector *CollectorGeneral) {
 				panic(err)
 			}
 			dockerClient.Logf = func(format string, args ...interface{}) {
-				if Verbose {
-					Logger.InfoDepth(1, fmt.Sprintf(format, args...))
-				}
+				log.Debugf(format, args...)
 			}
 			m.client[registryUrl] = dockerClient
 		}
@@ -97,20 +95,21 @@ func (m *MetricsCollectorDocker) Reset() {
 	m.prometheus.releaseCve.Reset()
 }
 
-func (m *MetricsCollectorDocker) Collect(ctx context.Context, callback chan<- func()) {
+func (m *MetricsCollectorDocker) Collect(ctx context.Context, logger *log.Entry, callback chan<- func()) {
 	var wg sync.WaitGroup
 	for _, project := range AppConfig.Projects.Docker {
 		wg.Add(1)
 		go func(project ConfigProjectDocker) {
 			defer wg.Done()
-			m.collectProject(ctx, callback, project)
+			contextLogger := logger.WithField("project", project.Name)
+			m.collectProject(ctx, contextLogger, callback, project)
 		}(project)
 	}
 
 	wg.Wait()
 }
 
-func (m *MetricsCollectorDocker) collectProject(ctx context.Context, callback chan<- func(), project ConfigProjectDocker) {
+func (m *MetricsCollectorDocker) collectProject(ctx context.Context, logger *log.Entry, callback chan<- func(), project ConfigProjectDocker) {
 	var err error
 	var cveReport *CveResponse
 
@@ -120,25 +119,27 @@ func (m *MetricsCollectorDocker) collectProject(ctx context.Context, callback ch
 	registryUrl, _, _ := project.GetRegistry()
 	client := m.client[registryUrl]
 
-	Logger.Infof("project[%v]: starting collection", project.Name)
+	logger.Infof("starting collection")
 
 	// init and fetch CVE
 	cveClient := project.CveReportClient()
 	if cveClient != nil {
-		Logger.Infof("project[%v]: fetching cve report", project.Name)
+		logger.Infof("fetching cve report")
 		cveReport, err = cveClient.FetchReport()
 
 		if err != nil {
-			Logger.Errorf("project[%v]: %v", project.Name, err)
+			logger.Errorf(err.Error())
 		}
 	}
 
-	releaseList, err := m.fetchDockerTags(ctx, project, client)
+	releaseList, err := m.fetchDockerTags(ctx, logger, project, client)
 
 	if err == nil {
 		for _, release := range releaseList {
 			if release.CreatedAt != nil {
-				Logger.Verbosef("project[%v]: found version %v on date %v", project.Name, release.Version, release.CreatedAt.String())
+				if opts.Logger.Verbose {
+					logger.Infof("found version %v on date %v", release.Version, release.CreatedAt.String())
+				}
 				releaseMetrics.AddTime(prometheus.Labels{
 					"name":    project.Name,
 					"image":   project.Image,
@@ -148,7 +149,9 @@ func (m *MetricsCollectorDocker) collectProject(ctx context.Context, callback ch
 				}, *release.CreatedAt)
 
 			} else {
-				Logger.Verbosef("project[%v]: found version %v without date", project.Name, release.Version)
+				if opts.Logger.Verbose {
+					logger.Infof("found version %v without date", release.Version)
+				}
 
 				releaseMetrics.AddInfo(prometheus.Labels{
 					"name":    project.Name,
@@ -163,7 +166,9 @@ func (m *MetricsCollectorDocker) collectProject(ctx context.Context, callback ch
 			if cveReport != nil {
 				reportList := cveReport.GetReportByVersion(release.Version)
 
-				Logger.Verbosef("project[%v]: found %v cve reports for version %v", project.Name, len(reportList), release.Version)
+				if opts.Logger.Verbose {
+					logger.Infof("found %v cve reports for version %v", len(reportList), release.Version)
+				}
 
 				for _, report := range reportList {
 					releaseCveMetrics.Add(prometheus.Labels{
@@ -185,7 +190,7 @@ func (m *MetricsCollectorDocker) collectProject(ctx context.Context, callback ch
 		}
 
 	} else {
-		Logger.Errorf("project[%v]: %v", project.Name, err)
+		logger.Errorf(err.Error())
 	}
 
 	// set metrics
@@ -195,7 +200,7 @@ func (m *MetricsCollectorDocker) collectProject(ctx context.Context, callback ch
 	}
 }
 
-func (m *MetricsCollectorDocker) fetchDockerTags(ctx context.Context, project ConfigProjectDocker, client *registry.Registry) (releaseList []AppreleaseVersion, err error) {
+func (m *MetricsCollectorDocker) fetchDockerTags(ctx context.Context, logger *log.Entry, project ConfigProjectDocker, client *registry.Registry) (releaseList []AppreleaseVersion, err error) {
 	var createdAt *time.Time
 	releaseList = []AppreleaseVersion{}
 
@@ -234,7 +239,7 @@ func (m *MetricsCollectorDocker) fetchDockerTags(ctx context.Context, project Co
 					var comp dockerManifestv1Compatibility
 
 					if err := json.Unmarshal([]byte(h.V1Compatibility), &comp); err != nil {
-						Logger.Errorf("project[%v]: %v", project.Name, err)
+						logger.Errorf(err.Error())
 						continue
 					}
 

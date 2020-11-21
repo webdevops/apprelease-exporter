@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
+	log "github.com/sirupsen/logrus"
 	"sync"
 	"time"
 )
@@ -11,6 +12,8 @@ var collectorGlobal CollectorGlobal
 type CollectorBase struct {
 	Name       string
 	scrapeTime *time.Duration
+
+	logger *log.Entry
 
 	LastScrapeDuration  *time.Duration
 	collectionStartTime time.Time
@@ -30,6 +33,7 @@ type CollectorGlobal struct {
 
 func (c *CollectorBase) Init() {
 	c.isHidden = false
+	c.logger = log.WithField("collector", c.Name)
 }
 
 func (c *CollectorBase) SetScrapeTime(scrapeTime time.Duration) {
@@ -70,7 +74,7 @@ func (c *CollectorBase) collectionStart() {
 	c.collectionStartTime = time.Now()
 
 	if !c.isHidden {
-		Logger.Infof("collector[%s]: starting metrics collection", c.Name)
+		c.logger.Info("starting metrics collection")
 	}
 }
 
@@ -79,13 +83,13 @@ func (c *CollectorBase) collectionFinish() {
 	c.LastScrapeDuration = &duration
 
 	if !c.isHidden {
-		Logger.Infof("collector[%s]: finished metrics collection (duration: %v)", c.Name, c.LastScrapeDuration)
+		c.logger.WithField("duration", c.LastScrapeDuration.Seconds()).Infof("finished metrics collection (duration: %v)", c.LastScrapeDuration)
 	}
 }
 
 func (c *CollectorBase) sleepUntilNextCollection() {
 	if !c.isHidden {
-		Logger.Verbosef("collector[%s]: sleeping %v", c.Name, c.GetScrapeTime().String())
+		c.logger.Debugf("sleeping %v", c.GetScrapeTime().String())
 	}
 	time.Sleep(*c.GetScrapeTime())
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/google/go-github/v28/github"
 	"github.com/prometheus/client_golang/prometheus"
+	log "github.com/sirupsen/logrus"
 	prometheusCommon "github.com/webdevops/go-prometheus-common"
 	"golang.org/x/oauth2"
 	"time"
@@ -25,11 +26,11 @@ type (
 func (m *MetricsCollectorGithub) Setup(collector *CollectorGeneral) {
 	m.CollectorReference = collector
 
-	if opts.GithubPersonalAccessToken != nil {
+	if opts.GitHub.PersonalAccessToken != nil {
 		// use personal access token
 		ctx := context.Background()
 		ts := oauth2.StaticTokenSource(
-			&oauth2.Token{AccessToken: *opts.GithubPersonalAccessToken},
+			&oauth2.Token{AccessToken: *opts.GitHub.PersonalAccessToken},
 		)
 		tc := oauth2.NewClient(ctx, ts)
 		m.client = github.NewClient(tc)
@@ -92,17 +93,18 @@ func (m *MetricsCollectorGithub) Reset() {
 	m.prometheus.releaseCve.Reset()
 }
 
-func (m *MetricsCollectorGithub) Collect(ctx context.Context, callback chan<- func()) {
+func (m *MetricsCollectorGithub) Collect(ctx context.Context, logger *log.Entry, callback chan<- func()) {
 	for _, project := range AppConfig.Projects.Github {
 		func(project ConfigProjectGithub) {
-			m.collectProject(ctx, callback, project)
+			contextLogger := logger.WithField("project", project.Name)
+			m.collectProject(ctx, contextLogger, callback, project)
 		}(project)
 
-		time.Sleep(opts.GithubScrapeWait)
+		time.Sleep(opts.GitHub.ScrapeWait)
 	}
 }
 
-func (m *MetricsCollectorGithub) collectProject(ctx context.Context, callback chan<- func(), project ConfigProjectGithub) {
+func (m *MetricsCollectorGithub) collectProject(ctx context.Context, logger *log.Entry, callback chan<- func(), project ConfigProjectGithub) {
 	var err error
 	var releaseList []AppreleaseVersion
 	var cveReport *CveResponse
@@ -110,33 +112,35 @@ func (m *MetricsCollectorGithub) collectProject(ctx context.Context, callback ch
 	releaseMetrics := prometheusCommon.NewMetricsList()
 	releaseCveMetrics := prometheusCommon.NewMetricsList()
 
-	Logger.Infof("project[%v]: starting collection", project.Name)
+	logger.Infof("starting collection")
 
 	// init and fetch CVE
 	cveClient := project.CveReportClient()
 	if cveClient != nil {
-		Logger.Infof("project[%v]: fetching cve report", project.Name)
+		logger.Infof("fetching cve report")
 		cveReport, err = cveClient.FetchReport()
 
 		if err != nil {
-			Logger.Errorf("project[%v]: %v", project.Name, err)
+			logger.Errorf(err.Error())
 		}
 	}
 
 	switch project.GetFetchType() {
 	case "tags":
-		Logger.Infof("project[%v]: fetching github versions from tags", project.Name)
-		releaseList, err = m.fetchGithubVersionFromTags(ctx, project)
+		logger.Infof("fetching github versions from tags")
+		releaseList, err = m.fetchGithubVersionFromTags(ctx, logger, project)
 	default:
-		Logger.Infof("project[%v]: fetching github versions from releases", project.Name)
-		releaseList, err = m.fetchGithubVersionFromReleases(ctx, project)
+		logger.Infof("fetching github versions from releases")
+		releaseList, err = m.fetchGithubVersionFromReleases(ctx, logger, project)
 	}
 
 	if err == nil {
-		Logger.Infof("project[%v]: found %v releases", project.Name, len(releaseList))
+		logger.Infof("found %v releases", len(releaseList))
 
 		for _, release := range releaseList {
-			Logger.Verbosef("project[%v]: found version %v on date %v", project.Name, release.Version, release.CreatedAt.String())
+			if opts.Logger.Verbose {
+				logger.Infof("found version %v on date %v", release.Version, release.CreatedAt.String())
+			}
 
 			releaseMetrics.AddTime(prometheus.Labels{
 				"name":    project.Name,
@@ -150,7 +154,9 @@ func (m *MetricsCollectorGithub) collectProject(ctx context.Context, callback ch
 			if cveReport != nil {
 				reportList := cveReport.GetReportByVersion(release.Version)
 
-				Logger.Verbosef("project[%v]: found %v cve reports for version %v", project.Name, len(reportList), release.Version)
+				if opts.Logger.Verbose {
+					logger.Infof("found %v cve reports for version %v", len(reportList), release.Version)
+				}
 
 				for _, report := range reportList {
 					releaseCveMetrics.Add(prometheus.Labels{
@@ -172,10 +178,10 @@ func (m *MetricsCollectorGithub) collectProject(ctx context.Context, callback ch
 		}
 
 	} else {
-		Logger.Errorf("project[%v]: %v", project.Name, err)
+		logger.Errorf(err.Error())
 	}
 
-	Logger.Infof("project[%v]: finished", project.Name)
+	logger.Infof("finished")
 
 	// set metrics
 	callback <- func() {
@@ -184,7 +190,7 @@ func (m *MetricsCollectorGithub) collectProject(ctx context.Context, callback ch
 	}
 }
 
-func (m *MetricsCollectorGithub) fetchGithubVersionFromReleases(ctx context.Context, project ConfigProjectGithub) (releaseList []AppreleaseVersion, err error) {
+func (m *MetricsCollectorGithub) fetchGithubVersionFromReleases(ctx context.Context, logger *log.Entry, project ConfigProjectGithub) (releaseList []AppreleaseVersion, err error) {
 	releaseList = []AppreleaseVersion{}
 
 	githubOwner, githubRepository := project.GetOwnerAndRepository()
@@ -216,7 +222,7 @@ func (m *MetricsCollectorGithub) fetchGithubVersionFromReleases(ctx context.Cont
 	return
 }
 
-func (m *MetricsCollectorGithub) fetchGithubVersionFromTags(ctx context.Context, project ConfigProjectGithub) (releaseList []AppreleaseVersion, err error) {
+func (m *MetricsCollectorGithub) fetchGithubVersionFromTags(ctx context.Context, logger *log.Entry, project ConfigProjectGithub) (releaseList []AppreleaseVersion, err error) {
 	var commit *github.RepositoryCommit
 	releaseList = []AppreleaseVersion{}
 	githubOwner, githubRepository := project.GetOwnerAndRepository()

@@ -18,7 +18,7 @@ func (m *CollectorGeneral) Setup(scrapeTime time.Duration) {
 
 func (m *CollectorGeneral) Run() {
 	if m.scrapeTime == nil {
-		panic("No scrapeTime set")
+		m.logger.Panic("no scrapeTime set")
 	}
 
 	go func() {
@@ -44,7 +44,7 @@ func (m *CollectorGeneral) Collect() {
 	wg.Add(1)
 	go func(ctx context.Context, callback chan<- func()) {
 		defer wg.Done()
-		m.Processor.Collect(ctx, callbackChannel)
+		m.Processor.Collect(ctx, m.logger, callbackChannel)
 	}(ctx, callbackChannel)
 
 	// collect metrics (callbacks) and proceses them

@@ -18,6 +18,7 @@ RUN ./apprelease-exporter --help
 # FINAL IMAGE
 #############################################
 FROM gcr.io/distroless/static
+ENV LOG_JSON=1
 COPY --from=build /go/src/github.com/webdevops/apprelease-exporter/apprelease-exporter /
 USER 1000
 ENTRYPOINT ["/apprelease-exporter"]
