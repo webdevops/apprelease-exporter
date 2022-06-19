@@ -3,15 +3,16 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"math"
+	"sort"
+	"sync"
+	"time"
+
 	"facette.io/natsort"
 	"github.com/heroku/docker-registry-client/registry"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	prometheusCommon "github.com/webdevops/go-prometheus-common"
-	"math"
-	"sort"
-	"sync"
-	"time"
 )
 
 type (
@@ -29,6 +30,9 @@ type (
 	dockerManifestv1Compatibility struct {
 		ID      string    `json:"id"`
 		Created time.Time `json:"created"`
+		Config  struct {
+			Labels map[string]string `json:"labels"`
+		} `json:"config"`
 	}
 )
 

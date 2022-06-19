@@ -3,14 +3,15 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	resty "github.com/go-resty/resty/v2"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/url"
 	"os"
 	"path"
 	"strings"
 	"time"
+
+	resty "github.com/go-resty/resty/v2"
+	log "github.com/sirupsen/logrus"
 )
 
 type (
@@ -82,7 +83,7 @@ func NewCveClient(conf ConfigProjectCommonCve) *CveClient {
 
 	c.restClient = resty.New()
 	c.restClient.SetHeader("User-Agent", fmt.Sprintf("apprelease-exporter/%s", gitTag))
-	c.restClient.SetHostURL(opts.Cve.Url)
+	c.restClient.SetBaseURL(opts.Cve.Url)
 	c.restClient.SetHeader("Accept", "application/json")
 
 	return c
@@ -176,7 +177,7 @@ func (c *CveClient) loadFromCache(force bool) (*CveResponse, bool) {
 			if force || time.Now().Before(stat.ModTime().Add(opts.Cache.Ttl)) {
 				log.Debugf("read cve from cached file %v", cvePath)
 
-				content, err := ioutil.ReadFile(cvePath)
+				content, err := ioutil.ReadFile(cvePath) // #nosec G304
 				if err != nil {
 					log.Errorf("unable to read cve cache file %v", cvePath)
 					return nil, false
@@ -207,6 +208,7 @@ func (c *CveClient) saveToCache(r *CveResponse) {
 		log.Debugf("write cve to cache file %v", cvePath)
 
 		if data, err := json.Marshal(&r.report); err == nil {
+			/* #nosec G306 only cache data */
 			if err := ioutil.WriteFile(cvePath, data, 0644); err != nil {
 				log.Errorf("unable to write cve cache file %v", cvePath)
 			}
