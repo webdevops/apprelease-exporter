@@ -2,12 +2,13 @@ package main
 
 import (
 	"context"
+	"time"
+
 	"github.com/google/go-github/v28/github"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	prometheusCommon "github.com/webdevops/go-prometheus-common"
 	"golang.org/x/oauth2"
-	"time"
 )
 
 type (
